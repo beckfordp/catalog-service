@@ -8,12 +8,12 @@
 - [x] Task: Conductor - User Manual Verification 'CatalogStore.list' (Protocol in workflow.md) — verified via scripts/verify-catalog-list-store.sh (c69af89), prompting off
 
 ## Phase 2 — GET /catalogs endpoint
-- [ ] Task: Add `InvalidPagination` case to `CatalogError`
-- [ ] Task: Write failing tests in `CatalogRoutesSuite` for `GET /catalogs`: default pagination, explicit limit/offset, empty-table 200, 400 on invalid limit/offset, `X-Total-Count` header value
-- [ ] Task: Implement the `GET /catalogs` tapir endpoint in `CatalogRoutes.scala` (query params, validation, `X-Total-Count` header, wiring to `CatalogStore.list`) to pass those tests
-- [ ] Task: Wire the new endpoint into `Main.scala`'s route list (docs + traced routes)
-- [ ] Task: Write/extend `CatalogDocsSuite` to cover the new endpoint's presence in generated docs
-- [ ] Task: Conductor - User Manual Verification 'GET /catalogs endpoint' (Protocol in workflow.md)
+- [x] Task: Add `InvalidPagination` case to `CatalogError` (279e26a)
+- [x] Task: Write failing tests in `CatalogRoutesSuite` for `GET /catalogs`: default pagination, explicit limit/offset, empty-table 200, 400 on invalid limit/offset, `X-Total-Count` header value (279e26a)
+- [x] Task: Implement the `GET /catalogs` tapir endpoint in `CatalogRoutes.scala` (query params, validation, `X-Total-Count` header, wiring to `CatalogStore.list`) to pass those tests (279e26a)
+- [x] Task: Wire the new endpoint into `Main.scala`'s route list (docs + traced routes) (279e26a)
+- [x] Task: Write/extend `CatalogDocsSuite` to cover the new endpoint's presence in generated docs (279e26a)
+- [x] Task: Conductor - User Manual Verification 'GET /catalogs endpoint' (Protocol in workflow.md) — verified via scripts/verify-catalog-list-endpoint.sh, prompting off
 
 ## Phase 3 — Wrap-up
 - [ ] Task: Run full suite (`sbt scalafmtCheck test`) and coverage check
