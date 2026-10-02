@@ -1,0 +1,21 @@
+# Plan: US-1.1 — browse/list catalog endpoints
+
+## Phase 1 — CatalogStore.list (in-memory + Postgres)
+- [ ] Task: Write failing tests for `CatalogStore.list` in `CatalogStoreSuite` (in-memory): empty store, single page, multi-page, total count
+- [ ] Task: Implement `list` on `CatalogStore.inMemory` to pass those tests
+- [ ] Task: Write failing tests for `CatalogStore.list` in `CatalogStorePostgresSuite` (Testcontainers): same cases against real Postgres
+- [ ] Task: Implement `list` on `CatalogStore.postgres` (`ORDER BY created_at DESC LIMIT/OFFSET` + `SELECT count(*)`) to pass those tests
+- [ ] Task: Conductor - User Manual Verification 'CatalogStore.list' (Protocol in workflow.md)
+
+## Phase 2 — GET /catalogs endpoint
+- [ ] Task: Add `InvalidPagination` case to `CatalogError`
+- [ ] Task: Write failing tests in `CatalogRoutesSuite` for `GET /catalogs`: default pagination, explicit limit/offset, empty-table 200, 400 on invalid limit/offset, `X-Total-Count` header value
+- [ ] Task: Implement the `GET /catalogs` tapir endpoint in `CatalogRoutes.scala` (query params, validation, `X-Total-Count` header, wiring to `CatalogStore.list`) to pass those tests
+- [ ] Task: Wire the new endpoint into `Main.scala`'s route list (docs + traced routes)
+- [ ] Task: Write/extend `CatalogDocsSuite` to cover the new endpoint's presence in generated docs
+- [ ] Task: Conductor - User Manual Verification 'GET /catalogs endpoint' (Protocol in workflow.md)
+
+## Phase 3 — Wrap-up
+- [ ] Task: Run full suite (`sbt scalafmtCheck test`) and coverage check
+- [ ] Task: Update `conductor/tracks.md` backlog (remove US-1.1 line, already captured as a real track)
+- [ ] Task: Conductor - User Manual Verification 'Phase 3 wrap-up' (Protocol in workflow.md)

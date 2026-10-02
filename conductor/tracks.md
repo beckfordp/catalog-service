@@ -2,6 +2,9 @@
 
 This file tracks all major tracks for the project.
 
+- [ ] **Track: US-1.1: browse/list catalog endpoints**
+  *Link: [./tracks/catalog-browse-list_20261002/](./tracks/catalog-browse-list_20261002/)*
+
 ---
 
 ## Backlog
@@ -11,11 +14,6 @@ folder), so `/conductor:implement` cannot pick these up by accident. Reorder fre
 priorities change. When ready to work on one, run `/conductor:newTrack <title>` to go
 through the spec/plan questions and promote it into a real track above.
 
-- Generate catalog-service + apply field-spec (infra) — **already done**: this
-  repo's generated code already has `name`/`description`/`priceCents`/`sku`
-  (create-only) applied from `gluon/specs/catalog.yaml`; prune this line
-  rather than re-track it
-- US-1.1: browse/list catalog endpoints
 - US-1.2: Redis read-through cache
 
 ---
