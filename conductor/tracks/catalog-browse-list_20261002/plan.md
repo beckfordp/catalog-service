@@ -7,7 +7,7 @@
 - [x] Task: Implement `list` on `CatalogStore.postgres` (`ORDER BY created_at DESC LIMIT/OFFSET` + `SELECT count(*)`) to pass those tests (e6eadbe)
 - [x] Task: Conductor - User Manual Verification 'CatalogStore.list' (Protocol in workflow.md) — verified via scripts/verify-catalog-list-store.sh (c69af89), prompting off
 
-## Phase 2 — GET /catalogs endpoint
+## Phase 2 — GET /catalogs endpoint [checkpoint: a5b3f2a]
 - [x] Task: Add `InvalidPagination` case to `CatalogError` (279e26a)
 - [x] Task: Write failing tests in `CatalogRoutesSuite` for `GET /catalogs`: default pagination, explicit limit/offset, empty-table 200, 400 on invalid limit/offset, `X-Total-Count` header value (279e26a)
 - [x] Task: Implement the `GET /catalogs` tapir endpoint in `CatalogRoutes.scala` (query params, validation, `X-Total-Count` header, wiring to `CatalogStore.list`) to pass those tests (279e26a)
