@@ -146,19 +146,26 @@ object CatalogStore {
     int4
   )
 
+  // count(*) OVER() rides along with each row so the page and its total are
+  // read from one consistent query result, not two separate round trips that
+  // could otherwise observe different data if a write lands in between.
   private val selectCatalogPage: skunk.Query[
     (Int, Int),
-    (UUID, String, String, Int, String, OffsetDateTime, OffsetDateTime)
+    (UUID, String, String, Int, String, OffsetDateTime, OffsetDateTime, Long)
   ] =
     sql"""
-      SELECT id, name, description, price_cents, sku, created_at, updated_at
+      SELECT id, name, description, price_cents, sku, created_at, updated_at,
+             count(*) OVER() AS total_count
       FROM "catalog"
       ORDER BY created_at DESC
       LIMIT $int4 OFFSET $int4
     """.query(
-      uuid *: text *: text *: int4 *: text *: timestamptz *: timestamptz
+      uuid *: text *: text *: int4 *: text *: timestamptz *: timestamptz *: int8
     )
 
+  // Fallback for when selectCatalogPage returns zero rows (empty table, or
+  // offset past the end) -- count(*) OVER() has no row to ride along with in
+  // that case, so the total still needs a direct query.
   private val countCatalog: skunk.Query[skunk.Void, Long] =
     sql"""SELECT count(*) FROM "catalog"""".query(int8)
 
@@ -332,8 +339,11 @@ object CatalogStore {
                         .flatMap(_.stream((limit, offset), 1024).compile.toList)
                     }
                   }
-                  total <- timed("count") {
-                    pool.use(_.unique(countCatalog))
+                  total <- rows.headOption match {
+                    case Some((_, _, _, _, _, _, _, totalCount)) =>
+                      Sync[F].pure(totalCount)
+                    case None =>
+                      timed("count") { pool.use(_.unique(countCatalog)) }
                   }
                 } yield rows.map {
                   case (
@@ -343,7 +353,8 @@ object CatalogStore {
                         priceCents,
                         sku,
                         createdAt,
-                        updatedAt
+                        updatedAt,
+                        _
                       ) =>
                     Catalog(
                       id.toString,
