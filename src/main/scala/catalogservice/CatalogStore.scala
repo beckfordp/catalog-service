@@ -39,6 +39,7 @@ trait CatalogStore[F[_]] {
       priceCents: Int
   ): F[Option[Catalog]]
   def delete(id: String): F[Boolean]
+  def list(limit: Int, offset: Int): F[(List[Catalog], Long)]
   def ping: F[Boolean]
 }
 
@@ -90,6 +91,13 @@ object CatalogStore {
           ref.modify { entities =>
             if (entities.contains(id)) (entities - id, true)
             else (entities, false)
+          }
+
+        def list(limit: Int, offset: Int): F[(List[Catalog], Long)] =
+          ref.get.map { entities =>
+            val sorted = entities.values.toList
+              .sortBy(_.createdAt)(using Ordering[java.time.Instant].reverse)
+            (sorted.slice(offset, offset + limit), sorted.size.toLong)
           }
 
         def ping: F[Boolean] = Sync[F].pure(true)
@@ -298,6 +306,8 @@ object CatalogStore {
                       }
                     }
                 }
+
+              def list(limit: Int, offset: Int): F[(List[Catalog], Long)] = ???
 
               def ping: F[Boolean] =
                 timed("ping") {

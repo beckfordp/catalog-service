@@ -19,6 +19,8 @@ class HealthRoutesSuite extends CatsEffectSuite {
           priceCents: Int
       ): IO[Option[Catalog]] = IO.pure(None)
       def delete(id: String): IO[Boolean] = IO.pure(false)
+      def list(limit: Int, offset: Int): IO[(List[Catalog], Long)] =
+        IO.pure((Nil, 0L))
       def ping: IO[Boolean] = IO.pure(true)
     }
 
@@ -34,6 +36,8 @@ class HealthRoutesSuite extends CatsEffectSuite {
           priceCents: Int
       ): IO[Option[Catalog]] = IO.pure(None)
       def delete(id: String): IO[Boolean] = IO.pure(false)
+      def list(limit: Int, offset: Int): IO[(List[Catalog], Long)] =
+        IO.pure((Nil, 0L))
       def ping: IO[Boolean] = IO.pure(false)
     }
 

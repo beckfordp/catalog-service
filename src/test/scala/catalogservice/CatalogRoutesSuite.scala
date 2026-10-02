@@ -29,6 +29,8 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       ): IO[Option[Catalog]] =
         IO.raiseError(error)
       def delete(id: String): IO[Boolean] = IO.raiseError(error)
+      def list(limit: Int, offset: Int): IO[(List[Catalog], Long)] =
+        IO.raiseError(error)
       def ping: IO[Boolean] = IO.raiseError(error)
     }
 
