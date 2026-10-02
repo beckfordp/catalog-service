@@ -1,6 +1,7 @@
 package catalogservice
 
 import cats.effect.IO
+import cats.syntax.all._
 import munit.CatsEffectSuite
 import org.http4s.circe.CirceEntityCodec._
 import org.http4s.implicits._
@@ -12,7 +13,10 @@ import org.typelevel.log4cats.testing.StructuredTestingLogger.{
   INFO,
   WARN
 }
+import org.typelevel.ci.CIStringSyntax
 import purerest.tracing.{ServerTracing, Tracing}
+
+import scala.concurrent.duration._
 
 class CatalogRoutesSuite extends CatsEffectSuite {
 
@@ -449,6 +453,116 @@ class CatalogRoutesSuite extends CatsEffectSuite {
         s"expected a JSON error body, got: $body"
       )
     }
+  }
+
+  test(
+    "GET /catalogs with no query params returns up to 20 catalogs newest-first with X-Total-Count"
+  ) {
+    for {
+      store <- CatalogStore.inMemory[IO]
+      routes = CatalogRoutes.routes[IO](store, NoOpLogger[IO])
+      first <- routes.orNotFound.run(
+        Request[IO](Method.POST, uri"/catalogs").withEntity(
+          CreateCatalogRequest("Widget", "A very fine widget", 1999, "sku-widget-1")
+        )
+      )
+      firstEntity <- first.as[CatalogResponse]
+      _ <- IO.sleep(2.millis)
+      second <- routes.orNotFound.run(
+        Request[IO](Method.POST, uri"/catalogs").withEntity(
+          CreateCatalogRequest("Gadget", "A very fine gadget", 2999, "sku-gadget-1")
+        )
+      )
+      secondEntity <- second.as[CatalogResponse]
+      response <- routes.orNotFound.run(Request[IO](Method.GET, uri"/catalogs"))
+      body <- response.as[List[CatalogResponse]]
+    } yield {
+      assertEquals(response.status, Status.Ok)
+      assertEquals(body.map(_.id), List(secondEntity.id, firstEntity.id))
+      assertEquals(
+        response.headers.get(ci"X-Total-Count").map(_.head.value),
+        Some("2")
+      )
+    }
+  }
+
+  test("GET /catalogs respects limit and offset") {
+    for {
+      store <- CatalogStore.inMemory[IO]
+      routes = CatalogRoutes.routes[IO](store, NoOpLogger[IO])
+      _ <- List(
+        ("Widget", "A very fine widget", 1999, "sku-widget-1"),
+        ("Gadget", "A very fine gadget", 2999, "sku-gadget-1"),
+        ("Gizmo", "A very fine gizmo", 3999, "sku-gizmo-1"),
+        ("Doohickey", "A very fine doohickey", 4999, "sku-doohickey-1"),
+        ("Thingamajig", "A very fine thingamajig", 5999, "sku-thingamajig-1")
+      ).traverse { case (name, description, priceCents, sku) =>
+        routes.orNotFound.run(
+          Request[IO](Method.POST, uri"/catalogs")
+            .withEntity(CreateCatalogRequest(name, description, priceCents, sku))
+        ) <* IO.sleep(2.millis)
+      }
+      response <- routes.orNotFound.run(
+        Request[IO](
+          Method.GET,
+          uri"/catalogs".withQueryParam("limit", 2).withQueryParam("offset", 1)
+        )
+      )
+      body <- response.as[List[CatalogResponse]]
+    } yield {
+      assertEquals(response.status, Status.Ok)
+      assertEquals(body.map(_.name), List("Doohickey", "Gizmo"))
+      assertEquals(
+        response.headers.get(ci"X-Total-Count").map(_.head.value),
+        Some("5")
+      )
+    }
+  }
+
+  test("GET /catalogs on an empty store returns 200 with [] and X-Total-Count: 0") {
+    for {
+      store <- CatalogStore.inMemory[IO]
+      routes = CatalogRoutes.routes[IO](store, NoOpLogger[IO])
+      response <- routes.orNotFound.run(Request[IO](Method.GET, uri"/catalogs"))
+      body <- response.as[List[CatalogResponse]]
+    } yield {
+      assertEquals(response.status, Status.Ok)
+      assertEquals(body, Nil)
+      assertEquals(
+        response.headers.get(ci"X-Total-Count").map(_.head.value),
+        Some("0")
+      )
+    }
+  }
+
+  test("GET /catalogs with limit<=0 returns 400") {
+    for {
+      store <- CatalogStore.inMemory[IO]
+      routes = CatalogRoutes.routes[IO](store, NoOpLogger[IO])
+      response <- routes.orNotFound.run(
+        Request[IO](Method.GET, uri"/catalogs".withQueryParam("limit", 0))
+      )
+    } yield assertEquals(response.status, Status.BadRequest)
+  }
+
+  test("GET /catalogs with limit>100 returns 400") {
+    for {
+      store <- CatalogStore.inMemory[IO]
+      routes = CatalogRoutes.routes[IO](store, NoOpLogger[IO])
+      response <- routes.orNotFound.run(
+        Request[IO](Method.GET, uri"/catalogs".withQueryParam("limit", 101))
+      )
+    } yield assertEquals(response.status, Status.BadRequest)
+  }
+
+  test("GET /catalogs with offset<0 returns 400") {
+    for {
+      store <- CatalogStore.inMemory[IO]
+      routes = CatalogRoutes.routes[IO](store, NoOpLogger[IO])
+      response <- routes.orNotFound.run(
+        Request[IO](Method.GET, uri"/catalogs".withQueryParam("offset", -1))
+      )
+    } yield assertEquals(response.status, Status.BadRequest)
   }
 
   test(

@@ -128,6 +128,27 @@ object CatalogRoutes {
       .out(statusCode(StatusCode.NoContent))
       .errorOut(notFoundOutput)
 
+  private val invalidPaginationOutput: EndpointOutput[CatalogError] =
+    statusCode(StatusCode.BadRequest)
+      .and(jsonBody[ErrorResponse])
+      .map[CatalogError](_ => InvalidPagination)(_ =>
+        ErrorResponse("Invalid pagination parameters")
+      )
+
+  private val listCatalogsEndpoint: PublicEndpoint[
+    (Option[Int], Option[Int]),
+    CatalogError,
+    (List[CatalogResponse], String),
+    Any
+  ] =
+    endpoint.get
+      .in("catalogs")
+      .in(query[Option[Int]]("limit"))
+      .in(query[Option[Int]]("offset"))
+      .out(jsonBody[List[CatalogResponse]])
+      .out(header[String]("X-Total-Count"))
+      .errorOut(invalidPaginationOutput)
+
   def serverEndpoint[F[_]: Async](
       store: CatalogStore[F],
       logger: StructuredLogger[F]
@@ -251,6 +272,42 @@ object CatalogRoutes {
       } yield result
     }
 
+  private val defaultLimit = 20
+  private val maxLimit = 100
+
+  def listCatalogsServerEndpoint[F[_]: Async](
+      store: CatalogStore[F],
+      logger: StructuredLogger[F]
+  ): ServerEndpoint[Any, F] =
+    listCatalogsEndpoint.serverLogic[F] { case (limitParam, offsetParam) =>
+      val limit = limitParam.getOrElse(defaultLimit)
+      val offset = offsetParam.getOrElse(0)
+      for {
+        _ <- logger.info(
+          Map("method" -> "GET", "path" -> "/catalogs")
+        )("Received request")
+        result <-
+          if (limit <= 0 || limit > maxLimit || offset < 0) {
+            logger
+              .warn(
+                Map("limit" -> limit.toString, "offset" -> offset.toString)
+              )("Invalid pagination parameters")
+              .as(Left(InvalidPagination))
+          } else {
+            store.list(limit, offset).flatMap { case (catalogs, total) =>
+              logger
+                .info(
+                  Map(
+                    "count" -> catalogs.size.toString,
+                    "total" -> total.toString
+                  )
+                )("Request completed")
+                .as(Right((catalogs.map(CatalogResponse(_)), total.toString)))
+            }
+          }
+      } yield result
+    }
+
   def routes[F[_]: Async](
       store: CatalogStore[F],
       logger: StructuredLogger[F]
@@ -261,7 +318,8 @@ object CatalogRoutes {
         getCatalogServerEndpoint(store, logger),
         updateCatalogServerEndpoint(store, logger),
         replaceCatalogServerEndpoint(store, logger),
-        deleteCatalogServerEndpoint(store, logger)
+        deleteCatalogServerEndpoint(store, logger),
+        listCatalogsServerEndpoint(store, logger)
       )
     )
 }

@@ -45,6 +45,8 @@ object Main extends IOApp.Simple {
                         .replaceCatalogServerEndpoint[IO](store, logger),
                       CatalogRoutes
                         .deleteCatalogServerEndpoint[IO](store, logger),
+                      CatalogRoutes
+                        .listCatalogsServerEndpoint[IO](store, logger),
                       HealthRoutes.healthServerEndpoint[IO],
                       HealthRoutes.readyServerEndpoint[IO](store)
                     )

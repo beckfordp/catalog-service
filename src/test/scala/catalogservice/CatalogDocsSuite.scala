@@ -32,4 +32,22 @@ class CatalogDocsSuite extends CatsEffectSuite {
       assert(clue(docsBody).contains("/catalogs"))
     }
   }
+
+  test(
+    "the GET /catalogs list endpoint is documented via purerest.docs"
+  ) {
+    for {
+      store <- CatalogStore.inMemory[IO]
+      endpoint = CatalogRoutes.listCatalogsServerEndpoint[IO](store, NoOpLogger[IO])
+      routes = Docs.routes[IO]("Catalog Service", "1.0", List(endpoint))
+      docsResponse <- routes.orNotFound.run(
+        Request[IO](Method.GET, uri"/docs/docs.yaml")
+      )
+      docsBody <- docsResponse.bodyText.compile.string
+    } yield {
+      assertEquals(docsResponse.status, Status.Ok)
+      assert(clue(docsBody).contains("/catalogs"))
+      assert(clue(docsBody).contains("X-Total-Count"))
+    }
+  }
 }
