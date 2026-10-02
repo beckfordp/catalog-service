@@ -8,7 +8,10 @@ import munit.CatsEffectSuite
 import org.testcontainers.utility.DockerImageName
 import org.typelevel.otel4s.metrics.Meter
 import purerest.metrics.Metrics
+import skunk.Session
+import skunk.implicits._
 
+import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 
 class CatalogStorePostgresSuite
@@ -28,6 +31,24 @@ class CatalogStorePostgresSuite
       user = postgres.username,
       password = postgres.password
     )
+
+  // TestContainerForAll shares one Postgres instance (and its "catalog"
+  // table) across every test in this suite, so the `list` tests -- the
+  // only ones here that assert over the *whole* table rather than rows
+  // looked up by their own id -- truncate first for isolation.
+  private def truncateCatalogTable(config: PostgresConfig): IO[Unit] = {
+    import org.typelevel.otel4s.trace.Tracer.Implicits.noop
+    import org.typelevel.otel4s.metrics.Meter.Implicits.noop
+    Session
+      .single[IO](
+        host = config.host,
+        port = config.port,
+        user = config.user,
+        database = config.database,
+        password = Some(config.password)
+      )
+      .use(_.execute(sql"""TRUNCATE TABLE "catalog"""".command).void)
+  }
 
   test("create persists an entity and returns it with a generated id") {
     withContainers { postgres =>
@@ -315,6 +336,91 @@ class CatalogStorePostgresSuite
             assertEquals(read2, updated)
             assert(deleted, "expected delete to report the entity existed")
             assertEquals(read3, None)
+          }
+        }
+    }
+  }
+
+  test("list returns an empty list and zero total for an empty table") {
+    withContainers { postgres =>
+      val config = configFor(postgres)
+      Migrations.run[IO](config) *> truncateCatalogTable(config) *> CatalogStore
+        .postgres[IO](config, Meter.noop[IO])
+        .use { store =>
+          store.list(20, 0).map(assertEquals(_, (Nil, 0L)))
+        }
+    }
+  }
+
+  test("list returns entities newest-first") {
+    withContainers { postgres =>
+      val config = configFor(postgres)
+      Migrations.run[IO](config) *> truncateCatalogTable(config) *> CatalogStore
+        .postgres[IO](config, Meter.noop[IO])
+        .use { store =>
+          for {
+            first <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
+            _ <- IO.sleep(2.millis)
+            second <- store.create("Gadget", "A very fine gadget", 2999, "sku-gadget-1")
+            _ <- IO.sleep(2.millis)
+            third <- store.create("Gizmo", "A very fine gizmo", 3999, "sku-gizmo-1")
+            result <- store.list(20, 0)
+          } yield assertEquals(
+            result._1.map(_.id),
+            List(third.id, second.id, first.id)
+          )
+        }
+    }
+  }
+
+  test("list respects limit and offset") {
+    withContainers { postgres =>
+      val config = configFor(postgres)
+      Migrations.run[IO](config) *> truncateCatalogTable(config) *> CatalogStore
+        .postgres[IO](config, Meter.noop[IO])
+        .use { store =>
+          for {
+            first <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
+            _ <- IO.sleep(2.millis)
+            second <- store.create("Gadget", "A very fine gadget", 2999, "sku-gadget-1")
+            _ <- IO.sleep(2.millis)
+            third <- store.create("Gizmo", "A very fine gizmo", 3999, "sku-gizmo-1")
+            _ <- IO.sleep(2.millis)
+            fourth <- store.create("Doohickey", "A very fine doohickey", 4999, "sku-doohickey-1")
+            _ <- IO.sleep(2.millis)
+            fifth <- store.create(
+              "Thingamajig",
+              "A very fine thingamajig",
+              5999,
+              "sku-thingamajig-1"
+            )
+            result <- store.list(2, 1)
+          } yield assertEquals(result._1.map(_.id), List(fourth.id, third.id))
+        }
+    }
+  }
+
+  test("list returns the correct total count regardless of page size") {
+    withContainers { postgres =>
+      val config = configFor(postgres)
+      Migrations.run[IO](config) *> truncateCatalogTable(config) *> CatalogStore
+        .postgres[IO](config, Meter.noop[IO])
+        .use { store =>
+          for {
+            _ <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
+            _ <- store.create("Gadget", "A very fine gadget", 2999, "sku-gadget-1")
+            _ <- store.create("Gizmo", "A very fine gizmo", 3999, "sku-gizmo-1")
+            _ <- store.create("Doohickey", "A very fine doohickey", 4999, "sku-doohickey-1")
+            _ <- store.create(
+              "Thingamajig",
+              "A very fine thingamajig",
+              5999,
+              "sku-thingamajig-1"
+            )
+            result <- store.list(2, 0)
+          } yield {
+            assertEquals(result._1.size, 2)
+            assertEquals(result._2, 5L)
           }
         }
     }

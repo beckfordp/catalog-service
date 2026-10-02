@@ -146,6 +146,22 @@ object CatalogStore {
     int4
   )
 
+  private val selectCatalogPage: skunk.Query[
+    (Int, Int),
+    (UUID, String, String, Int, String, OffsetDateTime, OffsetDateTime)
+  ] =
+    sql"""
+      SELECT id, name, description, price_cents, sku, created_at, updated_at
+      FROM "catalog"
+      ORDER BY created_at DESC
+      LIMIT $int4 OFFSET $int4
+    """.query(
+      uuid *: text *: text *: int4 *: text *: timestamptz *: timestamptz
+    )
+
+  private val countCatalog: skunk.Query[skunk.Void, Long] =
+    sql"""SELECT count(*) FROM "catalog"""".query(int8)
+
   def postgres[F[_]: Async: Console: Network](
       config: PostgresConfig,
       meter: Meter[F]
@@ -307,7 +323,38 @@ object CatalogStore {
                     }
                 }
 
-              def list(limit: Int, offset: Int): F[(List[Catalog], Long)] = ???
+              def list(limit: Int, offset: Int): F[(List[Catalog], Long)] =
+                for {
+                  rows <- timed("list") {
+                    pool.use { session =>
+                      session
+                        .prepare(selectCatalogPage)
+                        .flatMap(_.stream((limit, offset), 1024).compile.toList)
+                    }
+                  }
+                  total <- timed("count") {
+                    pool.use(_.unique(countCatalog))
+                  }
+                } yield rows.map {
+                  case (
+                        id,
+                        name,
+                        description,
+                        priceCents,
+                        sku,
+                        createdAt,
+                        updatedAt
+                      ) =>
+                    Catalog(
+                      id.toString,
+                      name,
+                      description,
+                      priceCents,
+                      sku,
+                      createdAt.toInstant,
+                      updatedAt.toInstant
+                    )
+                } -> total
 
               def ping: F[Boolean] =
                 timed("ping") {
