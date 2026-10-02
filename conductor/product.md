@@ -11,8 +11,9 @@ goals. This document scopes that vision down to catalog-service's own slice.
 catalog-service owns the **Catalog** domain entity — the browsable product
 list customers shop from — for Gluon's user stories. It is the only service
 permitted to read or write the `catalog` Postgres database
-(one-db-per-service). Read-heavy by design: a Redis read-through cache sits
-in front of lookups (US-1.2, not yet built).
+(one-db-per-service). Read-heavy by design: `GET /catalogs` (US-1.1, done
+2026-10-02) is the browse/list endpoint; a Redis read-through cache sits in
+front of it (US-1.2, not yet built).
 
 Generated via `pure-service-generator` (giter8 template over `purerest`),
 field-spec applied from `gluon/specs/catalog.yaml`, then hand-extended per
@@ -31,9 +32,16 @@ field-spec applied from `gluon/specs/catalog.yaml`, then hand-extended per
   different generated service and don't match the actual generated model
   (`name`/`description`/`priceCents`/`sku`) — worth fixing in the README
   directly, out of scope for this Conductor setup.
+- **`GET /catalogs`** (US-1.1, done 2026-10-02) — browse/list endpoint.
+  Optional `limit` (default 20, max 100) and `offset` (default 0) query
+  params; results ordered newest-first (`created_at DESC`); plain JSON array
+  response (no envelope) plus an `X-Total-Count` response header for the
+  true total; invalid `limit`/`offset` → `400` (`InvalidPagination`). No
+  filtering/sorting beyond newest-first, no cursor-based pagination — both
+  explicitly deferred.
 
 ## User stories in scope (gluon/docs/user-stories.md)
-- US-1.1 — browse/list catalog endpoints
+- US-1.1 — browse/list catalog endpoints (done 2026-10-02)
 - US-1.2 — Redis read-through cache
 
 ## Sequencing (gluon/PLAN.md)
