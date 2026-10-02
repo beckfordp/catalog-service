@@ -19,3 +19,6 @@
 - [x] Task: Run full suite (`sbt scalafmtCheck test`) and coverage check (67/67 passed, 90.57% stmt / 90.70% branch coverage)
 - [x] Task: Update `conductor/tracks.md` backlog (remove US-1.1 line, already captured as a real track) — already satisfied: `/conductor:newTrack` removed it from the backlog when this track was created
 - [x] Task: Conductor - User Manual Verification 'Phase 3 wrap-up' (Protocol in workflow.md) — re-ran scripts/verify-catalog-list-store.sh and scripts/verify-catalog-list-endpoint.sh, both pass; prompting off
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions (ac11582) — switched CatalogStore.postgres.list to a single `count(*) OVER()` query so the page and total are read atomically, with a fallback countCatalog query only for the empty-page case
