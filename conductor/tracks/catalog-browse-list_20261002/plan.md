@@ -16,6 +16,6 @@
 - [x] Task: Conductor - User Manual Verification 'GET /catalogs endpoint' (Protocol in workflow.md) — verified via scripts/verify-catalog-list-endpoint.sh, prompting off
 
 ## Phase 3 — Wrap-up
-- [ ] Task: Run full suite (`sbt scalafmtCheck test`) and coverage check
-- [ ] Task: Update `conductor/tracks.md` backlog (remove US-1.1 line, already captured as a real track)
+- [x] Task: Run full suite (`sbt scalafmtCheck test`) and coverage check (67/67 passed, 90.57% stmt / 90.70% branch coverage)
+- [x] Task: Update `conductor/tracks.md` backlog (remove US-1.1 line, already captured as a real track) — already satisfied: `/conductor:newTrack` removed it from the backlog when this track was created
 - [ ] Task: Conductor - User Manual Verification 'Phase 3 wrap-up' (Protocol in workflow.md)
