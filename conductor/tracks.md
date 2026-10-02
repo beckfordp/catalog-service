@@ -2,7 +2,7 @@
 
 This file tracks all major tracks for the project.
 
-- [ ] **Track: US-1.1: browse/list catalog endpoints**
+- [~] **Track: US-1.1: browse/list catalog endpoints**
   *Link: [./tracks/catalog-browse-list_20261002/](./tracks/catalog-browse-list_20261002/)*
 
 ---

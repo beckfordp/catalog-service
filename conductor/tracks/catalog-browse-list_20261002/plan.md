@@ -1,8 +1,8 @@
 # Plan: US-1.1 — browse/list catalog endpoints
 
 ## Phase 1 — CatalogStore.list (in-memory + Postgres)
-- [ ] Task: Write failing tests for `CatalogStore.list` in `CatalogStoreSuite` (in-memory): empty store, single page, multi-page, total count
-- [ ] Task: Implement `list` on `CatalogStore.inMemory` to pass those tests
+- [x] Task: Write failing tests for `CatalogStore.list` in `CatalogStoreSuite` (in-memory): empty store, single page, multi-page, total count (9f4bf68)
+- [x] Task: Implement `list` on `CatalogStore.inMemory` to pass those tests (9f4bf68)
 - [ ] Task: Write failing tests for `CatalogStore.list` in `CatalogStorePostgresSuite` (Testcontainers): same cases against real Postgres
 - [ ] Task: Implement `list` on `CatalogStore.postgres` (`ORDER BY created_at DESC LIMIT/OFFSET` + `SELECT count(*)`) to pass those tests
 - [ ] Task: Conductor - User Manual Verification 'CatalogStore.list' (Protocol in workflow.md)
