@@ -7,9 +7,9 @@
 - [x] Task: Conductor - User Manual Verification 'Tech stack + local infra' (Protocol in workflow.md) — verified via scripts/verify-redis-config.sh, prompting off
 
 ## Phase 2 — CatalogListCache
-- [ ] Task: Write failing tests in a new `CatalogListCacheSuite` (Testcontainers Redis, mirroring `OrderHistoryCacheSuite`): miss on empty, hit after set with matching limit/offset, miss with different limit/offset, TTL expiry
-- [ ] Task: Implement `CatalogListCache` (trait + `fromRedisCommands` + `resource`) to pass those tests — cache key `catalog-list:<limit>:<offset>`, JSON-encoded `(List[CatalogResponse], Long)` value
-- [ ] Task: Conductor - User Manual Verification 'CatalogListCache' (Protocol in workflow.md)
+- [x] Task: Write failing tests in a new `CatalogListCacheSuite` (Testcontainers Redis, mirroring `OrderHistoryCacheSuite`): miss on empty, hit after set with matching limit/offset, miss with different limit/offset, TTL expiry (08fc6a2)
+- [x] Task: Implement `CatalogListCache` (trait + `fromRedisCommands` + `resource`) to pass those tests — cache key `catalog-list:<limit>:<offset>`, JSON-encoded `(List[CatalogResponse], Long)` value (08fc6a2)
+- [x] Task: Conductor - User Manual Verification 'CatalogListCache' (Protocol in workflow.md) — verified via scripts/verify-catalog-list-cache.sh, prompting off
 
 ## Phase 3 — Wire into GET /catalogs
 - [ ] Task: Write failing tests in `CatalogRoutesSuite` for cache-aside behavior: first call misses and hits the store, second identical call is a cache hit (store not called again, e.g. via a store fake that errors on a 2nd call), response/`X-Total-Count` identical on both; existing 400 validation tests still pass
