@@ -1,6 +1,6 @@
 # Plan: US-1.2 — Redis read-through cache
 
-## Phase 1 — Tech stack + local infra
+## Phase 1 — Tech stack + local infra [checkpoint: 9f6018e]
 - [x] Task: Add `redis4cats-effects`/`redis4cats-log4cats` (runtime) and `testcontainers-scala-redis` (test) to `build.sbt`, matching order-service's pinned versions (2bd350d)
 - [x] Task: Add a `redis:7-alpine` service to `docker-compose.yml` (local-dev-only, no persistence), matching order-service's (2bd350d)
 - [x] Task: Add `RedisConfig(uri, listTtlSeconds)` to `CatalogServiceConfig`, update `application.conf`/test resources accordingly (2bd350d)
