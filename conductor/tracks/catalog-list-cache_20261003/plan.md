@@ -1,10 +1,10 @@
 # Plan: US-1.2 — Redis read-through cache
 
 ## Phase 1 — Tech stack + local infra
-- [ ] Task: Add `redis4cats-effects`/`redis4cats-log4cats` (runtime) and `testcontainers-scala-redis` (test) to `build.sbt`, matching order-service's pinned versions
-- [ ] Task: Add a `redis:7-alpine` service to `docker-compose.yml` (local-dev-only, no persistence), matching order-service's
-- [ ] Task: Add `RedisConfig(uri, listTtlSeconds)` to `CatalogServiceConfig`, update `application.conf`/test resources accordingly
-- [ ] Task: Conductor - User Manual Verification 'Tech stack + local infra' (Protocol in workflow.md)
+- [x] Task: Add `redis4cats-effects`/`redis4cats-log4cats` (runtime) and `testcontainers-scala-redis` (test) to `build.sbt`, matching order-service's pinned versions (2bd350d)
+- [x] Task: Add a `redis:7-alpine` service to `docker-compose.yml` (local-dev-only, no persistence), matching order-service's (2bd350d)
+- [x] Task: Add `RedisConfig(uri, listTtlSeconds)` to `CatalogServiceConfig`, update `application.conf`/test resources accordingly (2bd350d)
+- [x] Task: Conductor - User Manual Verification 'Tech stack + local infra' (Protocol in workflow.md) — verified via scripts/verify-redis-config.sh, prompting off
 
 ## Phase 2 — CatalogListCache
 - [ ] Task: Write failing tests in a new `CatalogListCacheSuite` (Testcontainers Redis, mirroring `OrderHistoryCacheSuite`): miss on empty, hit after set with matching limit/offset, miss with different limit/offset, TTL expiry
