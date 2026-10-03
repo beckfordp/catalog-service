@@ -19,6 +19,13 @@
 - postgresql JDBC 42.7.13 — Flyway-only (runtime scope), never used directly
   in application code
 
+## Caching
+- redis4cats-effects + redis4cats-log4cats 2.0.6 — cats-effect-native Redis
+  client (US-1.2), caches `GET /catalogs` pages (`CatalogListCache`),
+  cache-aside with TTL-only freshness. Keyed by the exact `(limit, offset)`
+  pagination params, 60s default TTL. No Kafka — system-design.md marks this
+  service's Kafka column "—"; it neither publishes nor consumes events.
+
 ## Config
 - pureconfig 0.17.10 — typed config from `application.conf`
 
@@ -30,22 +37,14 @@
 ## Testing
 - munit 1.3.6 + munit-cats-effect 2.2.1
 - log4cats-testing 2.8.0 — assert on structured log output
-- testcontainers-scala 0.43.6 (postgresql + munit modules) — real, ephemeral
-  Postgres for integration tests, no manual local setup
+- testcontainers-scala 0.43.6 (postgresql + redis + munit modules) — real,
+  ephemeral Postgres/Redis for integration tests, no manual local setup
 - scalafmt (default Scala 3 style) — `sbt scalafmtCheck test` run in CI
 
 ## Packaging / local deploy
 - sbt-native-packager (`JavaAppPackaging`, `DockerPlugin`)
 - Docker image: `eclipse-temurin:21-jre`
-- Docker Compose — local Postgres
-
-## Not yet in build.sbt
-- **Redis client** (US-1.2, read-through cache) — system-design.md's
-  services table marks catalog-service's Redis column "read-through cache."
-  order-service's US-8.1 established the Gluon pattern for this:
-  `redis4cats-effects` + `redis4cats-log4cats` (version 2.0.6 there) — a
-  cats-effect-native client, cache-aside. No Kafka — system-design.md marks
-  this service's Kafka column "—"; it neither publishes nor consumes events.
+- Docker Compose — local Postgres + Redis
 
 ## Target infrastructure (platform-wide, from `gluon/docs/system-design.md`)
 - Local: OrbStack Kubernetes (see ADR 0002)
