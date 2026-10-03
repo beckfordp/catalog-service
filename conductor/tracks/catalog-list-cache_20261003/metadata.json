@@ -1,0 +1,8 @@
+{
+  "track_id": "catalog-list-cache_20261003",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-10-03T04:55:44Z",
+  "updated_at": "2026-10-03T04:55:44Z",
+  "description": "US-1.2: Redis read-through cache"
+}
