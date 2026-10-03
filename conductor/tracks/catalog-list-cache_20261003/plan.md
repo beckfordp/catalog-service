@@ -17,6 +17,6 @@
 - [x] Task: Wire `CatalogListCache.resource` into `Main.scala` and pass it to `listCatalogsServerEndpoint` (9cb785d)
 - [x] Task: Conductor - User Manual Verification 'GET /catalogs cache-aside' (Protocol in workflow.md) — verified via scripts/verify-catalog-list-cache-endpoint.sh, prompting off
 
-## Phase 4 — Wrap-up
+## Phase 4 — Wrap-up [checkpoint: dd531c7]
 - [x] Task: Run full suite (`sbt scalafmtCheck test`) and coverage check (73/73 passed, 91.62% stmt / 91.49% branch coverage)
 - [x] Task: Conductor - User Manual Verification 'Phase 4 wrap-up' (Protocol in workflow.md) — re-ran all three track verify scripts (verify-redis-config.sh, verify-catalog-list-cache.sh, verify-catalog-list-cache-endpoint.sh), all pass; prompting off
