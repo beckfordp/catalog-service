@@ -12,10 +12,10 @@
 - [x] Task: Conductor - User Manual Verification 'CatalogListCache' (Protocol in workflow.md) — verified via scripts/verify-catalog-list-cache.sh, prompting off
 
 ## Phase 3 — Wire into GET /catalogs
-- [ ] Task: Write failing tests in `CatalogRoutesSuite` for cache-aside behavior: first call misses and hits the store, second identical call is a cache hit (store not called again, e.g. via a store fake that errors on a 2nd call), response/`X-Total-Count` identical on both; existing 400 validation tests still pass
-- [ ] Task: Make `listCatalogsServerEndpoint` take a `CatalogListCache[F]` parameter and implement cache-aside logic (hit/miss, structured `cache` log context) to pass those tests
-- [ ] Task: Wire `CatalogListCache.resource` into `Main.scala` and pass it to `listCatalogsServerEndpoint`
-- [ ] Task: Conductor - User Manual Verification 'GET /catalogs cache-aside' (Protocol in workflow.md)
+- [x] Task: Write failing tests in `CatalogRoutesSuite` for cache-aside behavior: first call misses and hits the store, second identical call is a cache hit (store not called again, e.g. via a store fake that errors on a 2nd call), response/`X-Total-Count` identical on both; existing 400 validation tests still pass (9cb785d)
+- [x] Task: Make `listCatalogsServerEndpoint` take a `CatalogListCache[F]` parameter and implement cache-aside logic (hit/miss, structured `cache` log context) to pass those tests (9cb785d)
+- [x] Task: Wire `CatalogListCache.resource` into `Main.scala` and pass it to `listCatalogsServerEndpoint` (9cb785d)
+- [x] Task: Conductor - User Manual Verification 'GET /catalogs cache-aside' (Protocol in workflow.md) — verified via scripts/verify-catalog-list-cache-endpoint.sh, prompting off
 
 ## Phase 4 — Wrap-up
 - [ ] Task: Run full suite (`sbt scalafmtCheck test`) and coverage check
