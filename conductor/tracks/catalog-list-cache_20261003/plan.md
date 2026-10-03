@@ -11,7 +11,7 @@
 - [x] Task: Implement `CatalogListCache` (trait + `fromRedisCommands` + `resource`) to pass those tests — cache key `catalog-list:<limit>:<offset>`, JSON-encoded `(List[CatalogResponse], Long)` value (08fc6a2)
 - [x] Task: Conductor - User Manual Verification 'CatalogListCache' (Protocol in workflow.md) — verified via scripts/verify-catalog-list-cache.sh, prompting off
 
-## Phase 3 — Wire into GET /catalogs
+## Phase 3 — Wire into GET /catalogs [checkpoint: 64fdd0b]
 - [x] Task: Write failing tests in `CatalogRoutesSuite` for cache-aside behavior: first call misses and hits the store, second identical call is a cache hit (store not called again, e.g. via a store fake that errors on a 2nd call), response/`X-Total-Count` identical on both; existing 400 validation tests still pass (9cb785d)
 - [x] Task: Make `listCatalogsServerEndpoint` take a `CatalogListCache[F]` parameter and implement cache-aside logic (hit/miss, structured `cache` log context) to pass those tests (9cb785d)
 - [x] Task: Wire `CatalogListCache.resource` into `Main.scala` and pass it to `listCatalogsServerEndpoint` (9cb785d)
