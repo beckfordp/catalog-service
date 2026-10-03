@@ -2,7 +2,7 @@
 
 This file tracks all major tracks for the project.
 
-- [ ] **Track: US-1.2: Redis read-through cache**
+- [x] **Track: US-1.2: Redis read-through cache**
   *Link: [./tracks/catalog-list-cache_20261003/](./tracks/catalog-list-cache_20261003/)*
 
 ---
