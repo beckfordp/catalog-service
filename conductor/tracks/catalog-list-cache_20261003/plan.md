@@ -6,7 +6,7 @@
 - [x] Task: Add `RedisConfig(uri, listTtlSeconds)` to `CatalogServiceConfig`, update `application.conf`/test resources accordingly (2bd350d)
 - [x] Task: Conductor - User Manual Verification 'Tech stack + local infra' (Protocol in workflow.md) — verified via scripts/verify-redis-config.sh, prompting off
 
-## Phase 2 — CatalogListCache
+## Phase 2 — CatalogListCache [checkpoint: bf28577]
 - [x] Task: Write failing tests in a new `CatalogListCacheSuite` (Testcontainers Redis, mirroring `OrderHistoryCacheSuite`): miss on empty, hit after set with matching limit/offset, miss with different limit/offset, TTL expiry (08fc6a2)
 - [x] Task: Implement `CatalogListCache` (trait + `fromRedisCommands` + `resource`) to pass those tests — cache key `catalog-list:<limit>:<offset>`, JSON-encoded `(List[CatalogResponse], Long)` value (08fc6a2)
 - [x] Task: Conductor - User Manual Verification 'CatalogListCache' (Protocol in workflow.md) — verified via scripts/verify-catalog-list-cache.sh, prompting off
