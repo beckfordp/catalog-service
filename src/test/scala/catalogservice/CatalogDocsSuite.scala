@@ -38,7 +38,12 @@ class CatalogDocsSuite extends CatsEffectSuite {
   ) {
     for {
       store <- CatalogStore.inMemory[IO]
-      endpoint = CatalogRoutes.listCatalogsServerEndpoint[IO](store, NoOpLogger[IO])
+      cache <- CatalogListCache.inMemory[IO]
+      endpoint = CatalogRoutes.listCatalogsServerEndpoint[IO](
+        store,
+        NoOpLogger[IO],
+        cache
+      )
       routes = Docs.routes[IO]("Catalog Service", "1.0", List(endpoint))
       docsResponse <- routes.orNotFound.run(
         Request[IO](Method.GET, uri"/docs/docs.yaml")

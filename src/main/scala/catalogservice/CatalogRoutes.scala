@@ -275,9 +275,14 @@ object CatalogRoutes {
   private val defaultLimit = 20
   private val maxLimit = 100
 
+  /** Cache-aside: a hit returns the cached page as-is; a miss queries
+    * `CatalogStore.list`, populates the cache (TTL-only freshness - see
+    * spec.md's "Out of Scope"), and returns the freshly-queried result.
+    */
   def listCatalogsServerEndpoint[F[_]: Async](
       store: CatalogStore[F],
-      logger: StructuredLogger[F]
+      logger: StructuredLogger[F],
+      cache: CatalogListCache[F]
   ): ServerEndpoint[Any, F] =
     listCatalogsEndpoint.serverLogic[F] { case (limitParam, offsetParam) =>
       val limit = limitParam.getOrElse(defaultLimit)
@@ -294,15 +299,31 @@ object CatalogRoutes {
               )("Invalid pagination parameters")
               .as(Left(InvalidPagination))
           } else {
-            store.list(limit, offset).flatMap { case (catalogs, total) =>
-              logger
-                .info(
-                  Map(
-                    "count" -> catalogs.size.toString,
-                    "total" -> total.toString
-                  )
-                )("Request completed")
-                .as(Right((catalogs.map(CatalogResponse(_)), total.toString)))
+            cache.get(limit, offset).flatMap {
+              case Some((catalogs, total)) =>
+                logger
+                  .info(
+                    Map(
+                      "limit" -> limit.toString,
+                      "offset" -> offset.toString,
+                      "cache" -> "hit"
+                    )
+                  )("Request completed")
+                  .as(Right((catalogs, total.toString)))
+              case None =>
+                store.list(limit, offset).flatMap { case (catalogs, total) =>
+                  val responses = catalogs.map(CatalogResponse(_))
+                  cache.set(limit, offset, responses, total) *>
+                    logger
+                      .info(
+                        Map(
+                          "limit" -> limit.toString,
+                          "offset" -> offset.toString,
+                          "cache" -> "miss"
+                        )
+                      )("Request completed")
+                      .as(Right((responses, total.toString)))
+                }
             }
           }
       } yield result
@@ -310,7 +331,8 @@ object CatalogRoutes {
 
   def routes[F[_]: Async](
       store: CatalogStore[F],
-      logger: StructuredLogger[F]
+      logger: StructuredLogger[F],
+      cache: CatalogListCache[F]
   ): HttpRoutes[F] =
     Http4sServerInterpreter[F]().toRoutes(
       List(
@@ -319,7 +341,7 @@ object CatalogRoutes {
         updateCatalogServerEndpoint(store, logger),
         replaceCatalogServerEndpoint(store, logger),
         deleteCatalogServerEndpoint(store, logger),
-        listCatalogsServerEndpoint(store, logger)
+        listCatalogsServerEndpoint(store, logger, cache)
       )
     )
 }

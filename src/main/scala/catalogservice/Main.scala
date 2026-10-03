@@ -33,35 +33,43 @@ object Main extends IOApp.Simple {
               )("catalog-service starting")
               _ <- CatalogStore.postgres[IO](config.postgres, meter).use {
                 store =>
-                  val docsRoutes = Docs.routes[IO](
-                    "Catalog Service",
-                    "1.0",
-                    List(
-                      CatalogRoutes.serverEndpoint[IO](store, logger),
-                      CatalogRoutes.getCatalogServerEndpoint[IO](store, logger),
-                      CatalogRoutes
-                        .updateCatalogServerEndpoint[IO](store, logger),
-                      CatalogRoutes
-                        .replaceCatalogServerEndpoint[IO](store, logger),
-                      CatalogRoutes
-                        .deleteCatalogServerEndpoint[IO](store, logger),
-                      CatalogRoutes
-                        .listCatalogsServerEndpoint[IO](store, logger),
-                      HealthRoutes.healthServerEndpoint[IO],
-                      HealthRoutes.readyServerEndpoint[IO](store)
-                    )
-                  )
-                  val tracedRoutes =
-                    ServerTracing.middleware(tracer)(docsRoutes)
-                  val routes =
-                    ServerMetrics.middleware[IO](meter)(tracedRoutes)
-                  EmberServerBuilder
-                    .default[IO]
-                    .withHost(host"0.0.0.0")
-                    .withPort(port)
-                    .withHttpApp(routes.orNotFound)
-                    .build
-                    .useForever
+                  CatalogListCache.resource[IO](config.redis, logger).use {
+                    cache =>
+                      val docsRoutes = Docs.routes[IO](
+                        "Catalog Service",
+                        "1.0",
+                        List(
+                          CatalogRoutes.serverEndpoint[IO](store, logger),
+                          CatalogRoutes
+                            .getCatalogServerEndpoint[IO](store, logger),
+                          CatalogRoutes
+                            .updateCatalogServerEndpoint[IO](store, logger),
+                          CatalogRoutes
+                            .replaceCatalogServerEndpoint[IO](store, logger),
+                          CatalogRoutes
+                            .deleteCatalogServerEndpoint[IO](store, logger),
+                          CatalogRoutes
+                            .listCatalogsServerEndpoint[IO](
+                              store,
+                              logger,
+                              cache
+                            ),
+                          HealthRoutes.healthServerEndpoint[IO],
+                          HealthRoutes.readyServerEndpoint[IO](store)
+                        )
+                      )
+                      val tracedRoutes =
+                        ServerTracing.middleware(tracer)(docsRoutes)
+                      val routes =
+                        ServerMetrics.middleware[IO](meter)(tracedRoutes)
+                      EmberServerBuilder
+                        .default[IO]
+                        .withHost(host"0.0.0.0")
+                        .withPort(port)
+                        .withHttpApp(routes.orNotFound)
+                        .build
+                        .useForever
+                  }
               }
             } yield ()
         }
