@@ -19,4 +19,4 @@
 
 ## Phase 4 — Wrap-up
 - [x] Task: Run full suite (`sbt scalafmtCheck test`) and coverage check (73/73 passed, 91.62% stmt / 91.49% branch coverage)
-- [ ] Task: Conductor - User Manual Verification 'Phase 4 wrap-up' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4 wrap-up' (Protocol in workflow.md) — re-ran all three track verify scripts (verify-redis-config.sh, verify-catalog-list-cache.sh, verify-catalog-list-cache-endpoint.sh), all pass; prompting off
