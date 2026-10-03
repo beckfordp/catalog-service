@@ -18,5 +18,5 @@
 - [x] Task: Conductor - User Manual Verification 'GET /catalogs cache-aside' (Protocol in workflow.md) — verified via scripts/verify-catalog-list-cache-endpoint.sh, prompting off
 
 ## Phase 4 — Wrap-up
-- [ ] Task: Run full suite (`sbt scalafmtCheck test`) and coverage check
+- [x] Task: Run full suite (`sbt scalafmtCheck test`) and coverage check (73/73 passed, 91.62% stmt / 91.49% branch coverage)
 - [ ] Task: Conductor - User Manual Verification 'Phase 4 wrap-up' (Protocol in workflow.md)
