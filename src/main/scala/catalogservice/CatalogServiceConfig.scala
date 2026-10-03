@@ -11,11 +11,17 @@ final case class PostgresConfig(
     password: String
 ) derives ConfigReader
 
+final case class RedisConfig(
+    uri: String,
+    listTtlSeconds: Int
+) derives ConfigReader
+
 final case class CatalogServiceConfig(
     port: Int,
     metricsPort: Int,
     serviceName: String,
-    postgres: PostgresConfig
+    postgres: PostgresConfig,
+    redis: RedisConfig
 ) derives ConfigReader
 
 object CatalogServiceConfig {

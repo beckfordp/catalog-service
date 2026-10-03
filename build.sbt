@@ -12,6 +12,7 @@ val flywayVersion = "11.8.2"
 val postgresqlJdbcVersion = "42.7.13"
 val pureconfigVersion = "0.17.10"
 val testcontainersScalaVersion = "0.43.6"
+val redis4catsVersion = "2.0.6"
 // Pinned to match the purerestlib version this service is built against — see
 // README's "Consuming purerest as a dependency" section.
 val purerestlibVersion = "0.1.0"
@@ -77,13 +78,19 @@ lazy val root = project
       "org.postgresql" % "postgresql" % postgresqlJdbcVersion % Runtime,
       // pureconfig: loads application.conf into typed config case classes.
       "com.github.pureconfig" %% "pureconfig-core" % pureconfigVersion,
+      // redis4cats: cats-effect-native Redis client (US-1.2) - caches
+      // GET /catalogs pages. -log4cats wires its internal logging through
+      // the same log4cats this service already uses.
+      "dev.profunktor" %% "redis4cats-effects" % redis4catsVersion,
+      "dev.profunktor" %% "redis4cats-log4cats" % redis4catsVersion,
       // munit: test framework used across this project (Scala-native, no JUnit dependency).
       "org.scalameta" %% "munit" % munitVersion % Test,
       // munit-cats-effect: lets test bodies return IO[Unit] and run under munit directly.
       "org.typelevel" %% "munit-cats-effect" % munitCatsEffectVersion % Test,
-      // testcontainers-scala: spins up a real, ephemeral Postgres container for
+      // testcontainers-scala: spins up a real, ephemeral Postgres/Redis container for
       // integration tests (not used by main code).
       "com.dimafeng" %% "testcontainers-scala-postgresql" % testcontainersScalaVersion % Test,
+      "com.dimafeng" %% "testcontainers-scala-redis" % testcontainersScalaVersion % Test,
       "com.dimafeng" %% "testcontainers-scala-munit" % testcontainersScalaVersion % Test,
       // log4cats-testing: purerestlib keeps this Test-scoped (doesn't propagate to
       // consumers), so this service declares its own copy to assert on log output

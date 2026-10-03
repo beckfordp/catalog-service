@@ -15,5 +15,18 @@ services:
       timeout: 5s
       retries: 30
 
+  # Local-dev-only, no persistence - just enough to run sbt run locally
+  # (US-1.2's catalog-list cache). Matches the Postgres service's "no manual
+  # setup" scope.
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
 volumes:
   postgres-data:

@@ -18,6 +18,10 @@ class CatalogServiceConfigSuite extends CatsEffectSuite {
       |  user = "catalog"
       |  password = "catalog"
       |}
+      |redis {
+      |  uri = "redis://localhost:6379"
+      |  list-ttl-seconds = 60
+      |}
       |""".stripMargin
 
   test("loads a fully-specified config") {
@@ -36,6 +40,10 @@ class CatalogServiceConfigSuite extends CatsEffectSuite {
             database = "catalog",
             user = "catalog",
             password = "catalog"
+          ),
+          redis = RedisConfig(
+            uri = "redis://localhost:6379",
+            listTtlSeconds = 60
           )
         )
       )
@@ -52,6 +60,10 @@ class CatalogServiceConfigSuite extends CatsEffectSuite {
         |  port = 5432
         |  database = "catalog"
         |  user = "catalog"
+        |}
+        |redis {
+        |  uri = "redis://localhost:6379"
+        |  list-ttl-seconds = 60
         |}
         |""".stripMargin
 
@@ -77,6 +89,10 @@ class CatalogServiceConfigSuite extends CatsEffectSuite {
           "catalog",
           "catalog"
         )
+      )
+      assertEquals(
+        config.redis,
+        RedisConfig(uri = "redis://localhost:6379", listTtlSeconds = 60)
       )
     }
   }
