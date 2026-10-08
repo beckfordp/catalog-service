@@ -4,8 +4,6 @@ This file tracks all major tracks for the project.
 
 - [x] **Track: US-1.2: Redis read-through cache**
   *Link: [./tracks/catalog-list-cache_20261003/](./tracks/catalog-list-cache_20261003/)*
-- [x] **Track: Seed a luxury-watch product list via scripts/seed-watches.sh**
-  *Link: [./tracks/seed-watches_20261008/](./tracks/seed-watches_20261008/)*
 
 ---
 
