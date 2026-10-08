@@ -15,15 +15,17 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md) (c8390fe)
 
 ## Phase 2: Manual verification & docs
-- [ ] Task: Run the script against a fresh local `docker compose up -d` +
+- [x] Task: Run the script against a fresh local `docker compose up -d` +
   `sbt run` catalog-service instance; confirm 10 rows created, fields
-  correct via `GET /catalogs`.
-- [ ] Task: Wait for the `GET /catalogs` cache TTL (60s default) to
+  correct via `GET /catalogs`. (ran against the real OrbStack
+  `gluon-local` deployment instead, via `kubectl port-forward
+  svc/catalog-service 8080:8080` — same public HTTP API)
+- [x] Task: Wait for the `GET /catalogs` cache TTL (60s default) to
   expire since the first run, then run the script a second time; confirm
   0 new rows, correct summary, exit code 0. (See spec.md's "Known
   limitation" — an immediate re-run within the TTL window is expected to
   duplicate, by design, and is not tested here.)
-- [ ] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md)
 
 Note: per workflow.md's TDD step, this track is a shell script seeding a
 running service via its public HTTP API — there's no application code to
