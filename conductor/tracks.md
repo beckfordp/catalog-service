@@ -14,4 +14,10 @@ folder), so `/conductor:implement` cannot pick these up by accident. Reorder fre
 priorities change. When ready to work on one, run `/conductor:newTrack <title>` to go
 through the spec/plan questions and promote it into a real track above.
 
+- Seed a luxury-watch product list (brand/model/description/price/sku) via
+  a new `scripts/seed-watches.sh`, POSTing each item to this service's own
+  `POST /catalogs` — driven by gshop's US-1 Catalog screen track needing
+  real data to render against; SKUs must match the ones gshop's
+  `src/data/watchImages.ts` maps to thumbnail placeholders
+
 ---
