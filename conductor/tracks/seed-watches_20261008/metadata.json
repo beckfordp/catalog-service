@@ -1,0 +1,8 @@
+{
+  "track_id": "seed-watches_20261008",
+  "type": "chore",
+  "status": "new",
+  "created_at": "2026-10-08T20:40:17Z",
+  "updated_at": "2026-10-08T20:40:17Z",
+  "description": "Seed a luxury-watch product list (brand/model/description/price/sku) via a new scripts/seed-watches.sh, POSTing each item to this service's own POST /catalogs"
+}
