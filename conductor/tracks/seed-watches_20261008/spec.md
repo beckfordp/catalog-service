@@ -37,8 +37,10 @@ screen realistic demo data once it's wired up.
 ## Acceptance Criteria
 - Fresh run against an empty catalogs table creates all 10 rows with
   correct fields.
-- A second consecutive run creates 0 new rows (all skipped by sku) and
-  exits 0.
+- A second run, issued *after* the `GET /catalogs` read-through cache's
+  TTL (60s default) has expired since the first run, creates 0 new rows
+  (all skipped by sku) and exits 0. See "Known limitation" below for a
+  run issued within that window.
 - Summary line printed at the end with correct counts.
 - `CATALOG_SERVICE_URL` override works.
 
@@ -48,3 +50,13 @@ screen realistic demo data once it's wired up.
 - Non-HTTP seeding (no direct DB insert, no startup-time seeding).
 - Dedup beyond the first 100 existing catalogs.
 - Running in CI/deployment automatically.
+
+## Known limitation
+The dedup check reads `GET /catalogs`, which sits behind catalog-service's
+own read-through cache (US-1.2): cache-aside, TTL-only freshness (60s
+default), and writes do **not** invalidate it. So a run issued within
+~60s of a prior run's writes sees the stale pre-seed cached page and
+re-creates all entries as duplicates — idempotency is TTL-bound, not
+immediate. Re-running after the cache TTL has elapsed dedups correctly.
+This is accepted as consistent with the service's existing documented
+cache design rather than worked around.

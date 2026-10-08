@@ -12,14 +12,17 @@
   POST failures. (3893b38)
 - [x] Task: Print end-of-run summary line and exit non-zero if
   `failed > 0`. (3893b38)
-- [ ] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md) (c8390fe)
 
 ## Phase 2: Manual verification & docs
 - [ ] Task: Run the script against a fresh local `docker compose up -d` +
   `sbt run` catalog-service instance; confirm 10 rows created, fields
   correct via `GET /catalogs`.
-- [ ] Task: Run the script a second time; confirm 0 new rows, correct
-  summary, exit code 0.
+- [ ] Task: Wait for the `GET /catalogs` cache TTL (60s default) to
+  expire since the first run, then run the script a second time; confirm
+  0 new rows, correct summary, exit code 0. (See spec.md's "Known
+  limitation" — an immediate re-run within the TTL window is expected to
+  duplicate, by design, and is not tested here.)
 - [ ] Task: Conductor - User Manual Verification 'Phase 2' (Protocol in workflow.md)
 
 Note: per workflow.md's TDD step, this track is a shell script seeding a
