@@ -54,10 +54,12 @@ for row in "${WATCHES[@]}"; do
     continue
   fi
 
+  payload="$(python3 -c "import json,sys; print(json.dumps({'name': sys.argv[1], 'description': sys.argv[2], 'priceCents': int(sys.argv[3]), 'sku': sys.argv[4]}))" "$name" "$description" "$price_cents" "$sku")"
+
   http_status="$(curl -s -o /tmp/seed-watches-response.json -w '%{http_code}' \
     -X POST "${BASE_URL}/catalogs" \
     -H "Content-Type: application/json" \
-    -d "$(python3 -c "import json,sys; print(json.dumps({'name': sys.argv[1], 'description': sys.argv[2], 'priceCents': int(sys.argv[3]), 'sku': sys.argv[4]}))" "$name" "$description" "$price_cents" "$sku")")"
+    -d "$payload")"
 
   if [ "$http_status" = "201" ]; then
     catalog_id="$(python3 -c "import json; print(json.load(open('/tmp/seed-watches-response.json'))['id'])")"
