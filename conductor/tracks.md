@@ -5,9 +5,6 @@ This file tracks all major tracks for the project.
 - [x] **Track: US-1.2: Redis read-through cache**
   *Link: [./tracks/catalog-list-cache_20261003/](./tracks/catalog-list-cache_20261003/)*
 
-- [x] **Track: Expand watch catalog from 10 to 100 items**
-  *Link: [./tracks/expand-watch-catalog_20261010/](./tracks/expand-watch-catalog_20261010/)*
-
 ---
 
 ## Backlog
