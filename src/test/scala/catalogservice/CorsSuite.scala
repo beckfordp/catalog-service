@@ -2,7 +2,7 @@ package catalogservice
 
 import cats.effect.IO
 import munit.CatsEffectSuite
-import org.http4s.{Header, HttpRoutes, Method, Request, Status}
+import org.http4s.{Header, HttpRoutes, Method, Request}
 import org.http4s.dsl.io._
 import org.http4s.implicits._
 import org.typelevel.ci._
