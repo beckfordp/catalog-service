@@ -5,6 +5,9 @@ This file tracks all major tracks for the project.
 - [x] **Track: US-1.2: Redis read-through cache**
   *Link: [./tracks/catalog-list-cache_20261003/](./tracks/catalog-list-cache_20261003/)*
 
+- [ ] **Track: Backport CORS support from pure-service-generator (TD-1.2)**
+  *Link: [./tracks/cors_20261010/](./tracks/cors_20261010/)*
+
 ---
 
 ## Backlog
@@ -14,15 +17,6 @@ folder), so `/conductor:implement` cannot pick these up by accident. Reorder fre
 priorities change. When ready to work on one, run `/conductor:newTrack <title>` to go
 through the spec/plan questions and promote it into a real track above.
 
-- No CORS support (no `Access-Control-Allow-Origin` header) — confirmed
-  2026-10-08 verifying gshop's US-1 Catalog screen: `curl` gets a clean
-  200 with no ACAO header, but every browser blocks gshop's `fetch()`.
-  Likely a `pure-service-generator`-level gap (same template as
-  cart/order/inventory/payment/notification) — fix there first
-  (`src/main/g8/src/main/scala/$package$/Main.scala`, wrap `routes`
-  with http4s's `org.http4s.server.middleware.CORS` before
-  `.orNotFound`), then port here. See `gluon/TECHNICAL_DEBT.md` TD-1 and
-  `gluon/backlogs/catalog-service.md`.
 - Bulk lookup-by-SKU endpoint (e.g. `GET /catalogs?skus=a,b,c`) — discovered
   2026-10-09: gshop's Cart screen joins cart-service's line items (sku +
   quantity only) against the *entire* catalog list client-side to get
