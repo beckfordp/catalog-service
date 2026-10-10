@@ -1,0 +1,8 @@
+{
+  "track_id": "expand-watch-catalog_20261010",
+  "type": "chore",
+  "status": "new",
+  "created_at": "2026-10-10T00:00:00Z",
+  "updated_at": "2026-10-10T00:00:00Z",
+  "description": "Append 90 new real-brand/model watches to scripts/seed-watches.sh's WATCHES array, growing the demo catalog from 10 to 100 items, driven by gshop's boutique-redesign_20261010 track"
+}
