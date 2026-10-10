@@ -5,9 +5,6 @@ This file tracks all major tracks for the project.
 - [x] **Track: US-1.2: Redis read-through cache**
   *Link: [./tracks/catalog-list-cache_20261003/](./tracks/catalog-list-cache_20261003/)*
 
-- [x] **Track: Backport CORS support from pure-service-generator (TD-1.2)**
-  *Link: [./tracks/cors_20261010/](./tracks/cors_20261010/)*
-
 ---
 
 ## Backlog
