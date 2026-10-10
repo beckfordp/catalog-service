@@ -9,13 +9,23 @@ set -euo pipefail
 # doesn't exist yet, so exact SKU matching is deferred until that file is
 # built.
 #
-# Assumes catalog-service is already running and reachable (OrbStack k8s,
-# or local docker compose + sbt run) - this script does not start it.
+# Also backfills inventory-service with a matching stock record
+# (quantityAvailable: 10) for any sku that doesn't have one yet - catalog
+# and inventory are separate services/databases with no FK, so they drift
+# out of sync on their own; this keeps them in sync from one script/one
+# source of truth (the WATCHES list below) instead of a second script
+# duplicating it. Idempotent either way - safe to rerun.
+#
+# Assumes catalog-service and inventory-service are already running and
+# reachable (OrbStack k8s, or local docker compose + sbt run) - this
+# script does not start them.
 #
 # Usage: ./scripts/seed-watches.sh
 # Env:   CATALOG_SERVICE_URL (default http://localhost:8080)
+#        INVENTORY_SERVICE_URL (default http://inventory-service.gluon-local.svc.cluster.local:8080)
 
 BASE_URL="${CATALOG_SERVICE_URL:-http://localhost:8080}"
+INVENTORY_BASE_URL="${INVENTORY_SERVICE_URL:-http://inventory-service.gluon-local.svc.cluster.local:8080}"
 
 # name|description|priceCents|sku
 WATCHES=(
@@ -129,9 +139,18 @@ created=0
 skipped=0
 failed=0
 
+inventory_created=0
+inventory_skipped=0
+inventory_failed=0
+
 existing_skus() {
   curl -s "${BASE_URL}/catalogs?limit=100" \
     | python3 -c "import json,sys; print('\n'.join(c['sku'] for c in json.load(sys.stdin)))"
+}
+
+existing_inventory_skus() {
+  curl -s "${INVENTORY_BASE_URL}/inventorys" \
+    | python3 -c "import json,sys; print('\n'.join(i['sku'] for i in json.load(sys.stdin)))"
 }
 
 EXISTING_SKUS="$(existing_skus)"
@@ -168,6 +187,41 @@ done
 echo
 echo "Summary: ${created} created, ${skipped} skipped, ${failed} failed."
 
-if [ "$failed" -gt 0 ]; then
+echo
+echo "Backfilling inventory stock (quantityAvailable: 10) at ${INVENTORY_BASE_URL}..."
+echo
+
+EXISTING_INVENTORY_SKUS="$(existing_inventory_skus)"
+
+for row in "${WATCHES[@]}"; do
+  IFS='|' read -r name description price_cents sku <<<"$row"
+
+  if grep -qxF "$sku" <<<"$EXISTING_INVENTORY_SKUS"; then
+    echo "  SKIP: ${sku} (inventory already exists)"
+    inventory_skipped=$((inventory_skipped + 1))
+    continue
+  fi
+
+  inventory_payload="$(python3 -c "import json,sys; print(json.dumps({'sku': sys.argv[1], 'quantityAvailable': 10}))" "$sku")"
+
+  inventory_http_status="$(curl -s -o /tmp/seed-watches-inventory-response.json -w '%{http_code}' \
+    -X POST "${INVENTORY_BASE_URL}/inventorys" \
+    -H "Content-Type: application/json" \
+    -d "$inventory_payload")"
+
+  if [ "$inventory_http_status" = "201" ]; then
+    inventory_id="$(python3 -c "import json; print(json.load(open('/tmp/seed-watches-inventory-response.json'))['id'])")"
+    echo "  CREATED: ${sku} -> ${inventory_id} (qty 10)"
+    inventory_created=$((inventory_created + 1))
+  else
+    echo "  FAILED: ${sku} (HTTP ${inventory_http_status})" >&2
+    inventory_failed=$((inventory_failed + 1))
+  fi
+done
+
+echo
+echo "Inventory summary: ${inventory_created} created, ${inventory_skipped} skipped, ${inventory_failed} failed."
+
+if [ "$failed" -gt 0 ] || [ "$inventory_failed" -gt 0 ]; then
   exit 1
 fi
