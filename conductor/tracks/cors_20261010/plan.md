@@ -9,5 +9,8 @@
 - [x] Task: Add `scripts/verify-cors.sh` (matching this repo's existing `verify-*.sh` convention) — starts Postgres via `docker compose up -d`, runs `sbt run`, `curl` with `Origin` header against `GET /catalogs` and an `OPTIONS` preflight, asserts the expected headers, cleans up via `trap`. Ran it for real — passed end-to-end. `a1a1a64`
 - [x] Task: Conductor - User Manual Verification 'CORS middleware' (Protocol in workflow.md) — `/prompt off` active: ran `scripts/verify-cors.sh` directly instead of an interactive walkthrough — all checks passed (GET /catalogs: 200 + ACAO header, no Allow-Credentials; OPTIONS preflight: 200 + Allow-Methods includes POST + Allow-Headers includes Content-Type).
 
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions `bd62f0a`
+
 ## Notes on `/prompt off`
 Per-task Plan Mode review and commit-approval prompts are skipped for this track (marker active since 2026-10-10) — each task is implemented per this already-approved plan and committed directly, announced in one line.
