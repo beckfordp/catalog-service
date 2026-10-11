@@ -43,6 +43,18 @@ class CorsSuite extends CatsEffectSuite {
     }
   }
 
+  test("a cross-origin GET exposes X-Total-Count to browser JS") {
+    val request = Request[IO](Method.GET, uri"/catalogs")
+      .putHeaders(Header.Raw(ci"Origin", "http://example.com"))
+    for {
+      response <- corsRoutes.orNotFound.run(request)
+      exposeHeaders = response.headers.get(ci"Access-Control-Expose-Headers")
+    } yield assert(
+      exposeHeaders.exists(_.head.value.toLowerCase.contains("x-total-count")),
+      s"expected Access-Control-Expose-Headers to include X-Total-Count, got: $exposeHeaders"
+    )
+  }
+
   test("no Access-Control-Allow-Credentials header is sent") {
     val request = Request[IO](Method.GET, uri"/catalogs")
       .putHeaders(Header.Raw(ci"Origin", "http://example.com"))

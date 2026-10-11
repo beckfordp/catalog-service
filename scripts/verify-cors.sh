@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Verifies CORS support end-to-end (track cors_20261010, TD-1.2): brings up
-# Postgres + a real sbt run instance, drives real HTTP traffic through it to
-# confirm Access-Control-Allow-Origin on a plain GET and the expected
-# Allow-Methods/Allow-Headers on an OPTIONS preflight - not just that the
-# test suite passes.
+# Verifies CORS support end-to-end (track cors_20261010, TD-1.2; extended by
+# expose-x-total-count_20261011): brings up Postgres + a real sbt run
+# instance, drives real HTTP traffic through it to confirm
+# Access-Control-Allow-Origin on a plain GET, the expected
+# Allow-Methods/Allow-Headers on an OPTIONS preflight, and that
+# X-Total-Count is exposed to browser JS via Access-Control-Expose-Headers
+# - not just that the test suite passes.
 #
 # Usage: ./scripts/verify-cors.sh
 
@@ -75,6 +77,7 @@ get_headers="$(curl -s -D - -o /dev/null -H 'Origin: http://example.com' http://
 get_status="$(echo "$get_headers" | head -1 | tr -d '\r' | awk '{print $2}')"
 check "GET /catalogs returns 200" "200" "$get_status"
 check_contains "GET /catalogs sends Access-Control-Allow-Origin" "access-control-allow-origin" "$get_headers"
+check_contains "GET /catalogs exposes X-Total-Count" "x-total-count" "$get_headers"
 credentials_count="$(echo "$get_headers" | grep -ci 'access-control-allow-credentials' || true)"
 check "GET /catalogs omits Access-Control-Allow-Credentials" "0" "$credentials_count"
 

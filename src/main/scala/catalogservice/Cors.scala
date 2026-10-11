@@ -5,11 +5,13 @@ import org.http4s.{HttpRoutes, Method}
 import org.http4s.server.middleware.CORS
 import org.typelevel.ci._
 
-/** CORS policy for a freshly generated service: allow all origins (no
-  * frontend origin decided yet at generation time), restricted to the
-  * methods/headers this template's own routes actually use, credentials
-  * disallowed (required anyway alongside an allow-all-origins policy —
-  * browsers reject credentialed requests against a wildcard origin).
+/** CORS policy: allow all origins, restricted to the methods/headers this
+  * service's routes actually use, credentials disallowed (required anyway
+  * alongside an allow-all-origins policy — browsers reject credentialed
+  * requests against a wildcard origin). `X-Total-Count` (GET /catalogs's
+  * pagination total) is explicitly exposed — without it, browsers hide any
+  * non-CORS-safelisted response header from JS by default even though the
+  * header itself is sent and visible to non-browser clients like curl.
   */
 object Cors {
 
@@ -20,6 +22,7 @@ object Cors {
         Set(Method.GET, Method.POST, Method.PATCH, Method.PUT, Method.DELETE)
       )
       .withAllowHeadersIn(Set(ci"Content-Type"))
+      .withExposeHeadersIn(Set(ci"X-Total-Count"))
       .withAllowCredentials(false)
       .apply(routes)
 }
