@@ -5,9 +5,6 @@ This file tracks all major tracks for the project.
 - [x] **Track: US-1.2: Redis read-through cache**
   *Link: [./tracks/catalog-list-cache_20261003/](./tracks/catalog-list-cache_20261003/)*
 
-- [x] **Track: Expose X-Total-Count via CORS**
-  *Link: [./tracks/expose-x-total-count_20261011/](./tracks/expose-x-total-count_20261011/)*
-
 ---
 
 ## Backlog
