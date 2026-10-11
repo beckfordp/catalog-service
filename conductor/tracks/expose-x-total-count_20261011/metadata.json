@@ -1,0 +1,8 @@
+{
+  "track_id": "expose-x-total-count_20261011",
+  "type": "bug",
+  "status": "new",
+  "created_at": "2026-10-11T00:00:00Z",
+  "updated_at": "2026-10-11T00:00:00Z",
+  "description": "Expose X-Total-Count via Access-Control-Expose-Headers so browser clients (gshop) can read it; found as a regression in cors_20261010 that silently broke gshop's Catalog pagination"
+}
