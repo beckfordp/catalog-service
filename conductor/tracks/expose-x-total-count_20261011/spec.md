@@ -8,9 +8,9 @@
 - No other change to the CORS policy (origins/methods/allow-headers/credentials all stay as `cors_20261010` set them).
 
 ## Acceptance Criteria
-- [ ] `CorsSuite` gets a new test: a cross-origin `GET /catalogs` response includes `Access-Control-Expose-Headers` containing `X-Total-Count`.
-- [ ] Live: a real browser `fetch()` against `GET /catalogs` can read `X-Total-Count` via `response.headers.get(...)`.
-- [ ] Full `sbt test` suite stays green.
+- [x] `CorsSuite` gets a new test: a cross-origin `GET /catalogs` response includes `Access-Control-Expose-Headers` containing `X-Total-Count`.
+- [x] Live: a real browser `fetch()` against `GET /catalogs` can read `X-Total-Count` via `response.headers.get(...)`.
+- [x] Full `sbt test` suite stays green (77/77).
 
 ## Out of Scope
 - Any other CORS policy change.
