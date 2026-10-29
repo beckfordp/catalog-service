@@ -2,6 +2,9 @@
 
 This file tracks all major tracks for the project.
 
+- [ ] **Track: TD-15.6 — Cross-repo consistency hardening (catalog-service)**
+  *Link: [./tracks/td15-catalog-hardening_20261029/](./tracks/td15-catalog-hardening_20261029/)*
+
 - [x] **Track: US-1.2: Redis read-through cache**
   *Link: [./tracks/catalog-list-cache_20261003/](./tracks/catalog-list-cache_20261003/)*
 
@@ -26,6 +29,5 @@ through the spec/plan questions and promote it into a real track above.
   as an ADR-level decision (BFF service vs. a Kafka-driven CQRS read-model)
   rather than adding another one-off endpoint.
 
-- TD-15.6 — cross-repo consistency hardening: typed CatalogId, ScalaCheck, narrower constraints (see `gluon/TECHNICAL_DEBT.md` TD-15)
 
 ---
