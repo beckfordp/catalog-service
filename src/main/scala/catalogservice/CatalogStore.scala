@@ -3,6 +3,7 @@ package catalogservice
 import cats.effect.{Async, Ref, Resource, Sync}
 import cats.effect.std.Console
 import cats.syntax.all._
+import catalogservice.domain.CatalogId
 import fs2.io.net.Network
 import org.typelevel.otel4s.Attribute
 import org.typelevel.otel4s.metrics.Meter
@@ -15,7 +16,7 @@ import java.util.UUID
 import scala.concurrent.duration.SECONDS
 
 final case class Catalog(
-    id: String,
+    id: CatalogId,
     name: String,
     description: String,
     priceCents: Int,
@@ -31,14 +32,14 @@ trait CatalogStore[F[_]] {
       priceCents: Int,
       sku: String
   ): F[Catalog]
-  def get(id: String): F[Option[Catalog]]
+  def get(id: CatalogId): F[Option[Catalog]]
   def update(
-      id: String,
+      id: CatalogId,
       name: String,
       description: String,
       priceCents: Int
   ): F[Option[Catalog]]
-  def delete(id: String): F[Boolean]
+  def delete(id: CatalogId): F[Boolean]
   def list(limit: Int, offset: Int): F[(List[Catalog], Long)]
   def ping: F[Boolean]
 }
@@ -46,7 +47,7 @@ trait CatalogStore[F[_]] {
 object CatalogStore {
 
   def inMemory[F[_]: Sync]: F[CatalogStore[F]] =
-    Ref.of[F, Map[String, Catalog]](Map.empty).map { ref =>
+    Ref.of[F, Map[CatalogId, Catalog]](Map.empty).map { ref =>
       new CatalogStore[F] {
         def create(
             name: String,
@@ -55,16 +56,18 @@ object CatalogStore {
             sku: String
         ): F[Catalog] =
           for {
-            id <- Sync[F].delay(java.util.UUID.randomUUID().toString)
+            id <- Sync[F].delay(
+              CatalogId.fromUuid(java.util.UUID.randomUUID())
+            )
             now <- Sync[F].realTimeInstant
             entity = Catalog(id, name, description, priceCents, sku, now, now)
             _ <- ref.update(_ + (id -> entity))
           } yield entity
 
-        def get(id: String): F[Option[Catalog]] = ref.get.map(_.get(id))
+        def get(id: CatalogId): F[Option[Catalog]] = ref.get.map(_.get(id))
 
         def update(
-            id: String,
+            id: CatalogId,
             name: String,
             description: String,
             priceCents: Int
@@ -87,7 +90,7 @@ object CatalogStore {
             }
           } yield updated
 
-        def delete(id: String): F[Boolean] =
+        def delete(id: CatalogId): F[Boolean] =
           ref.modify { entities =>
             if (entities.contains(id)) (entities - id, true)
             else (entities, false)
@@ -235,7 +238,7 @@ object CatalogStore {
                 } yield {
                   val (createdAt, updatedAt) = timestamps
                   Catalog(
-                    id.toString,
+                    CatalogId.fromUuid(id),
                     name,
                     description,
                     priceCents,
@@ -245,89 +248,82 @@ object CatalogStore {
                   )
                 }
 
-              def get(id: String): F[Option[Catalog]] =
-                scala.util.Try(UUID.fromString(id)).toOption match {
-                  case None       => Sync[F].pure(None)
-                  case Some(uuid) =>
-                    for {
-                      row <- timed("select") {
-                        pool.use { session =>
-                          session.prepare(selectCatalog).flatMap(_.option(uuid))
-                        }
-                      }
-                    } yield row.map {
-                      case (
-                            name,
-                            description,
-                            priceCents,
-                            sku,
-                            createdAt,
-                            updatedAt
-                          ) =>
-                        Catalog(
-                          id,
-                          name,
-                          description,
-                          priceCents,
-                          sku,
-                          createdAt.toInstant,
-                          updatedAt.toInstant
-                        )
-                    }
-                }
+              def get(id: CatalogId): F[Option[Catalog]] =
+                timed("select") {
+                  pool.use { session =>
+                    session
+                      .prepare(selectCatalog)
+                      .flatMap(_.option(CatalogId.uuid(id)))
+                  }
+                }.map(_.map {
+                  case (
+                        name,
+                        description,
+                        priceCents,
+                        sku,
+                        createdAt,
+                        updatedAt
+                      ) =>
+                    Catalog(
+                      id,
+                      name,
+                      description,
+                      priceCents,
+                      sku,
+                      createdAt.toInstant,
+                      updatedAt.toInstant
+                    )
+                })
 
               def update(
-                  id: String,
+                  id: CatalogId,
                   name: String,
                   description: String,
                   priceCents: Int
               ): F[Option[Catalog]] =
-                scala.util.Try(UUID.fromString(id)).toOption match {
-                  case None       => Sync[F].pure(None)
-                  case Some(uuid) =>
-                    for {
-                      row <- timed("update") {
-                        pool.use { session =>
-                          session
-                            .prepare(updateCatalog)
-                            .flatMap(
-                              _.option((name, description, priceCents, uuid))
-                            )
-                        }
-                      }
-                    } yield row.map {
-                      case (
+                timed("update") {
+                  pool.use { session =>
+                    session
+                      .prepare(updateCatalog)
+                      .flatMap(
+                        _.option(
+                          (
                             name,
                             description,
                             priceCents,
-                            sku,
-                            createdAt,
-                            updatedAt
-                          ) =>
-                        Catalog(
-                          id,
-                          name,
-                          description,
-                          priceCents,
-                          sku,
-                          createdAt.toInstant,
-                          updatedAt.toInstant
+                            CatalogId.uuid(id)
+                          )
                         )
-                    }
-                }
+                      )
+                  }
+                }.map(_.map {
+                  case (
+                        name,
+                        description,
+                        priceCents,
+                        sku,
+                        createdAt,
+                        updatedAt
+                      ) =>
+                    Catalog(
+                      id,
+                      name,
+                      description,
+                      priceCents,
+                      sku,
+                      createdAt.toInstant,
+                      updatedAt.toInstant
+                    )
+                })
 
-              def delete(id: String): F[Boolean] =
-                scala.util.Try(UUID.fromString(id)).toOption match {
-                  case None       => Sync[F].pure(false)
-                  case Some(uuid) =>
-                    timed("delete") {
-                      pool.use { session =>
-                        session
-                          .prepare(deleteCatalog)
-                          .flatMap(_.option(uuid))
-                          .map(_.isDefined)
-                      }
-                    }
+              def delete(id: CatalogId): F[Boolean] =
+                timed("delete") {
+                  pool.use { session =>
+                    session
+                      .prepare(deleteCatalog)
+                      .flatMap(_.option(CatalogId.uuid(id)))
+                      .map(_.isDefined)
+                  }
                 }
 
               def list(limit: Int, offset: Int): F[(List[Catalog], Long)] =
@@ -357,7 +353,7 @@ object CatalogStore {
                         _
                       ) =>
                     Catalog(
-                      id.toString,
+                      CatalogId.fromUuid(id),
                       name,
                       description,
                       priceCents,

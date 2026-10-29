@@ -4,6 +4,7 @@ import cats.effect.IO
 import cats.syntax.all._
 import com.dimafeng.testcontainers.PostgreSQLContainer
 import com.dimafeng.testcontainers.munit.TestContainerForAll
+import catalogservice.domain.CatalogId
 import munit.CatsEffectSuite
 import org.testcontainers.utility.DockerImageName
 import org.typelevel.otel4s.metrics.Meter
@@ -56,9 +57,11 @@ class CatalogStorePostgresSuite
       Migrations.run[IO](config) *> CatalogStore
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
-          store.create("Widget", "A very fine widget", 1999, "sku-widget-1").map { entity =>
-            assert(entity.id.nonEmpty)
-          }
+          store
+            .create("Widget", "A very fine widget", 1999, "sku-widget-1")
+            .map { entity =>
+              assert(entity.id.toString.nonEmpty)
+            }
         }
     }
   }
@@ -71,8 +74,18 @@ class CatalogStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           for {
-            first <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
-            second <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
+            first <- store.create(
+              "Widget",
+              "A very fine widget",
+              1999,
+              "sku-widget-1"
+            )
+            second <- store.create(
+              "Widget",
+              "A very fine widget",
+              1999,
+              "sku-widget-1"
+            )
           } yield assertNotEquals(first.id, second.id)
         }
     }
@@ -85,7 +98,12 @@ class CatalogStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           for {
-            created <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
+            created <- store.create(
+              "Widget",
+              "A very fine widget",
+              1999,
+              "sku-widget-1"
+            )
             found <- store.get(created.id)
           } yield assertEquals(found, Some(created))
         }
@@ -99,19 +117,8 @@ class CatalogStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           store
-            .get(java.util.UUID.randomUUID().toString)
+            .get(CatalogId.fromUuid(java.util.UUID.randomUUID()))
             .map(assertEquals(_, None))
-        }
-    }
-  }
-
-  test("get returns None for a malformed (non-UUID) id") {
-    withContainers { postgres =>
-      val config = configFor(postgres)
-      Migrations.run[IO](config) *> CatalogStore
-        .postgres[IO](config, Meter.noop[IO])
-        .use { store =>
-          store.get("not-a-uuid").map(assertEquals(_, None))
         }
     }
   }
@@ -123,8 +130,18 @@ class CatalogStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           for {
-            created <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
-            updated <- store.update(created.id, "Widget", "A very fine widget", 1999)
+            created <- store.create(
+              "Widget",
+              "A very fine widget",
+              1999,
+              "sku-widget-1"
+            )
+            updated <- store.update(
+              created.id,
+              "Widget",
+              "A very fine widget",
+              1999
+            )
           } yield {
             assertEquals(updated.map(_.id), Some(created.id))
             assert(
@@ -143,31 +160,32 @@ class CatalogStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           store
-            .update(java.util.UUID.randomUUID().toString, "Widget", "A very fine widget", 1999)
+            .update(
+              CatalogId.fromUuid(java.util.UUID.randomUUID()),
+              "Widget",
+              "A very fine widget",
+              1999
+            )
             .map(assertEquals(_, None))
         }
     }
   }
 
-  test("update returns None for a malformed (non-UUID) id") {
-    withContainers { postgres =>
-      val config = configFor(postgres)
-      Migrations.run[IO](config) *> CatalogStore
-        .postgres[IO](config, Meter.noop[IO])
-        .use { store =>
-          store.update("not-a-uuid", "Widget", "A very fine widget", 1999).map(assertEquals(_, None))
-        }
-    }
-  }
-
-  test("delete removes the entity and returns true, and get then returns None") {
+  test(
+    "delete removes the entity and returns true, and get then returns None"
+  ) {
     withContainers { postgres =>
       val config = configFor(postgres)
       Migrations.run[IO](config) *> CatalogStore
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           for {
-            created <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
+            created <- store.create(
+              "Widget",
+              "A very fine widget",
+              1999,
+              "sku-widget-1"
+            )
             deleted <- store.delete(created.id)
             found <- store.get(created.id)
           } yield {
@@ -185,19 +203,8 @@ class CatalogStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           store
-            .delete(java.util.UUID.randomUUID().toString)
+            .delete(CatalogId.fromUuid(java.util.UUID.randomUUID()))
             .map(deleted => assert(!deleted))
-        }
-    }
-  }
-
-  test("delete returns false for a malformed (non-UUID) id") {
-    withContainers { postgres =>
-      val config = configFor(postgres)
-      Migrations.run[IO](config) *> CatalogStore
-        .postgres[IO](config, Meter.noop[IO])
-        .use { store =>
-          store.delete("not-a-uuid").map(deleted => assert(!deleted))
         }
     }
   }
@@ -229,37 +236,41 @@ class CatalogStorePostgresSuite
   ) {
     withContainers { postgres =>
       val config = configFor(postgres)
-      Metrics.test[IO]("catalog-store-postgres-metrics-test").use {
-        testMeter =>
-          Migrations.run[IO](config) *> CatalogStore
-            .postgres[IO](config, testMeter.meter)
-            .use { store =>
-              for {
-                created <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
-                _ <- store.get(created.id)
-                metrics <- testMeter.collectMetrics
-              } yield {
-                val data =
-                  metrics.find(_.getName == "db.client.operation.duration")
-                assert(
-                  data.isDefined,
-                  s"expected a db.client.operation.duration series, got: $metrics"
+      Metrics.test[IO]("catalog-store-postgres-metrics-test").use { testMeter =>
+        Migrations.run[IO](config) *> CatalogStore
+          .postgres[IO](config, testMeter.meter)
+          .use { store =>
+            for {
+              created <- store.create(
+                "Widget",
+                "A very fine widget",
+                1999,
+                "sku-widget-1"
+              )
+              _ <- store.get(created.id)
+              metrics <- testMeter.collectMetrics
+            } yield {
+              val data =
+                metrics.find(_.getName == "db.client.operation.duration")
+              assert(
+                data.isDefined,
+                s"expected a db.client.operation.duration series, got: $metrics"
+              )
+              val dbOperationKey =
+                io.opentelemetry.api.common.AttributeKey
+                  .stringKey("db.operation")
+              val operations = data.get.getHistogramData.getPoints.asScala
+                .flatMap(point =>
+                  Option(point.getAttributes.get(dbOperationKey))
                 )
-                val dbOperationKey =
-                  io.opentelemetry.api.common.AttributeKey
-                    .stringKey("db.operation")
-                val operations = data.get.getHistogramData.getPoints.asScala
-                  .flatMap(point =>
-                    Option(point.getAttributes.get(dbOperationKey))
-                  )
-                  .toSet
-                assert(
-                  operations
-                    .contains("insert") && operations.contains("select"),
-                  s"expected db.operation attributes for both insert and select, got: $operations"
-                )
-              }
+                .toSet
+              assert(
+                operations
+                  .contains("insert") && operations.contains("select"),
+                s"expected db.operation attributes for both insert and select, got: $operations"
+              )
             }
+          }
       }
     }
   }
@@ -272,40 +283,41 @@ class CatalogStorePostgresSuite
       // `mappedPort(5432) + 1`, it can't collide with another concurrently-running
       // Testcontainers Postgres instance's dynamically assigned port.
       val unreachableConfig = configFor(postgres).copy(port = 1)
-      Metrics.test[IO]("catalog-store-postgres-metrics-test").use {
-        testMeter =>
-          CatalogStore
-            .postgres[IO](unreachableConfig, testMeter.meter)
-            .use { store =>
-              for {
-                result <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1").attempt
-                metrics <- testMeter.collectMetrics
-              } yield {
-                assert(
-                  result.isLeft,
-                  s"expected the connection failure to propagate, got: $result"
+      Metrics.test[IO]("catalog-store-postgres-metrics-test").use { testMeter =>
+        CatalogStore
+          .postgres[IO](unreachableConfig, testMeter.meter)
+          .use { store =>
+            for {
+              result <- store
+                .create("Widget", "A very fine widget", 1999, "sku-widget-1")
+                .attempt
+              metrics <- testMeter.collectMetrics
+            } yield {
+              assert(
+                result.isLeft,
+                s"expected the connection failure to propagate, got: $result"
+              )
+              val data =
+                metrics.find(_.getName == "db.client.operation.duration")
+              assert(
+                data.isDefined,
+                s"expected a db.client.operation.duration series, got: $metrics"
+              )
+              val errorTypeKey =
+                io.opentelemetry.api.common.AttributeKey.stringKey(
+                  "error.type"
                 )
-                val data =
-                  metrics.find(_.getName == "db.client.operation.duration")
-                assert(
-                  data.isDefined,
-                  s"expected a db.client.operation.duration series, got: $metrics"
-                )
-                val errorTypeKey =
-                  io.opentelemetry.api.common.AttributeKey.stringKey(
-                    "error.type"
+              val hasErrorAttribute =
+                data.get.getHistogramData.getPoints.asScala
+                  .exists(point =>
+                    Option(point.getAttributes.get(errorTypeKey)).isDefined
                   )
-                val hasErrorAttribute =
-                  data.get.getHistogramData.getPoints.asScala
-                    .exists(point =>
-                      Option(point.getAttributes.get(errorTypeKey)).isDefined
-                    )
-                assert(
-                  hasErrorAttribute,
-                  s"expected a point tagged with error.type, got: ${data.get.getHistogramData.getPoints}"
-                )
-              }
+              assert(
+                hasErrorAttribute,
+                s"expected a point tagged with error.type, got: ${data.get.getHistogramData.getPoints}"
+              )
             }
+          }
       }
     }
   }
@@ -320,9 +332,19 @@ class CatalogStorePostgresSuite
         .use { store =>
           for {
             ready <- store.ping
-            created <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
+            created <- store.create(
+              "Widget",
+              "A very fine widget",
+              1999,
+              "sku-widget-1"
+            )
             read1 <- store.get(created.id)
-            updated <- store.update(created.id, "Widget", "A very fine widget", 1999)
+            updated <- store.update(
+              created.id,
+              "Widget",
+              "A very fine widget",
+              1999
+            )
             read2 <- store.get(created.id)
             deleted <- store.delete(created.id)
             read3 <- store.get(created.id)
@@ -359,11 +381,26 @@ class CatalogStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           for {
-            first <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
+            first <- store.create(
+              "Widget",
+              "A very fine widget",
+              1999,
+              "sku-widget-1"
+            )
             _ <- IO.sleep(2.millis)
-            second <- store.create("Gadget", "A very fine gadget", 2999, "sku-gadget-1")
+            second <- store.create(
+              "Gadget",
+              "A very fine gadget",
+              2999,
+              "sku-gadget-1"
+            )
             _ <- IO.sleep(2.millis)
-            third <- store.create("Gizmo", "A very fine gizmo", 3999, "sku-gizmo-1")
+            third <- store.create(
+              "Gizmo",
+              "A very fine gizmo",
+              3999,
+              "sku-gizmo-1"
+            )
             result <- store.list(20, 0)
           } yield assertEquals(
             result._1.map(_.id),
@@ -380,13 +417,33 @@ class CatalogStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           for {
-            first <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
+            first <- store.create(
+              "Widget",
+              "A very fine widget",
+              1999,
+              "sku-widget-1"
+            )
             _ <- IO.sleep(2.millis)
-            second <- store.create("Gadget", "A very fine gadget", 2999, "sku-gadget-1")
+            second <- store.create(
+              "Gadget",
+              "A very fine gadget",
+              2999,
+              "sku-gadget-1"
+            )
             _ <- IO.sleep(2.millis)
-            third <- store.create("Gizmo", "A very fine gizmo", 3999, "sku-gizmo-1")
+            third <- store.create(
+              "Gizmo",
+              "A very fine gizmo",
+              3999,
+              "sku-gizmo-1"
+            )
             _ <- IO.sleep(2.millis)
-            fourth <- store.create("Doohickey", "A very fine doohickey", 4999, "sku-doohickey-1")
+            fourth <- store.create(
+              "Doohickey",
+              "A very fine doohickey",
+              4999,
+              "sku-doohickey-1"
+            )
             _ <- IO.sleep(2.millis)
             fifth <- store.create(
               "Thingamajig",
@@ -407,10 +464,25 @@ class CatalogStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           for {
-            _ <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
-            _ <- store.create("Gadget", "A very fine gadget", 2999, "sku-gadget-1")
+            _ <- store.create(
+              "Widget",
+              "A very fine widget",
+              1999,
+              "sku-widget-1"
+            )
+            _ <- store.create(
+              "Gadget",
+              "A very fine gadget",
+              2999,
+              "sku-gadget-1"
+            )
             _ <- store.create("Gizmo", "A very fine gizmo", 3999, "sku-gizmo-1")
-            _ <- store.create("Doohickey", "A very fine doohickey", 4999, "sku-doohickey-1")
+            _ <- store.create(
+              "Doohickey",
+              "A very fine doohickey",
+              4999,
+              "sku-doohickey-1"
+            )
             _ <- store.create(
               "Thingamajig",
               "A very fine thingamajig",

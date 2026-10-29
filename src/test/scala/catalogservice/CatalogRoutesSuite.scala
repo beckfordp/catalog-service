@@ -2,6 +2,7 @@ package catalogservice
 
 import cats.effect.IO
 import cats.syntax.all._
+import catalogservice.domain.CatalogId
 import munit.CatsEffectSuite
 import org.http4s.circe.CirceEntityCodec._
 import org.http4s.implicits._
@@ -20,8 +21,10 @@ import scala.concurrent.duration._
 
 class CatalogRoutesSuite extends CatsEffectSuite {
 
-  /** Used by every test that isn't specifically exercising cache-aside
-    * behavior - always a miss, never actually caches anything.
+  private val unknownCatalogId = java.util.UUID.randomUUID().toString
+
+  /** Used by every test that isn't specifically exercising cache-aside behavior -
+    * always a miss, never actually caches anything.
     */
   private val noOpListCache: CatalogListCache[IO] =
     new CatalogListCache[IO] {
@@ -39,17 +42,22 @@ class CatalogRoutesSuite extends CatsEffectSuite {
 
   private def failingStore(error: Throwable): CatalogStore[IO] =
     new CatalogStore[IO] {
-      def create(name: String, description: String, priceCents: Int, sku: String): IO[Catalog] =
+      def create(
+          name: String,
+          description: String,
+          priceCents: Int,
+          sku: String
+      ): IO[Catalog] =
         IO.raiseError(error)
-      def get(id: String): IO[Option[Catalog]] = IO.pure(None)
+      def get(id: CatalogId): IO[Option[Catalog]] = IO.pure(None)
       def update(
-          id: String,
+          id: CatalogId,
           name: String,
           description: String,
           priceCents: Int
       ): IO[Option[Catalog]] =
         IO.raiseError(error)
-      def delete(id: String): IO[Boolean] = IO.raiseError(error)
+      def delete(id: CatalogId): IO[Boolean] = IO.raiseError(error)
       def list(limit: Int, offset: Int): IO[(List[Catalog], Long)] =
         IO.raiseError(error)
       def ping: IO[Boolean] = IO.raiseError(error)
@@ -60,12 +68,19 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       store <- CatalogStore.inMemory[IO]
       routes = CatalogRoutes.routes[IO](store, NoOpLogger[IO], noOpListCache)
       request = Request[IO](Method.POST, uri"/catalogs")
-        .withEntity(CreateCatalogRequest("Widget", "A very fine widget", 1999, "sku-widget-1"))
+        .withEntity(
+          CreateCatalogRequest(
+            "Widget",
+            "A very fine widget",
+            1999,
+            "sku-widget-1"
+          )
+        )
       response <- routes.orNotFound.run(request)
       entity <- response.as[CatalogResponse]
     } yield {
       assertEquals(response.status, Status.Created)
-      assert(entity.id.nonEmpty)
+      assert(entity.id.toString.nonEmpty)
     }
   }
 
@@ -75,7 +90,12 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       routes = CatalogRoutes.routes[IO](store, NoOpLogger[IO], noOpListCache)
       postResponse <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/catalogs").withEntity(
-          CreateCatalogRequest("Widget", "A very fine widget", 1999, "sku-widget-1")
+          CreateCatalogRequest(
+            "Widget",
+            "A very fine widget",
+            1999,
+            "sku-widget-1"
+          )
         )
       )
       created <- postResponse.as[CatalogResponse]
@@ -96,7 +116,7 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       store <- CatalogStore.inMemory[IO]
       routes = CatalogRoutes.routes[IO](store, NoOpLogger[IO], noOpListCache)
       response <- routes.orNotFound.run(
-        Request[IO](Method.GET, uri"/catalogs" / "unknown-id")
+        Request[IO](Method.GET, uri"/catalogs" / unknownCatalogId)
       )
       body <- response.as[io.circe.Json]
     } yield {
@@ -116,7 +136,14 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       testLogger = StructuredTestingLogger.impl[IO]()
       routes = CatalogRoutes.routes[IO](store, testLogger, noOpListCache)
       request = Request[IO](Method.POST, uri"/catalogs")
-        .withEntity(CreateCatalogRequest("Widget", "A very fine widget", 1999, "sku-widget-1"))
+        .withEntity(
+          CreateCatalogRequest(
+            "Widget",
+            "A very fine widget",
+            1999,
+            "sku-widget-1"
+          )
+        )
       response <- routes.orNotFound.run(request)
       entity <- response.as[CatalogResponse]
       logged <- testLogger.logged
@@ -145,9 +172,17 @@ class CatalogRoutesSuite extends CatsEffectSuite {
     val boom = new RuntimeException("boom")
     for {
       testLogger <- IO.pure(StructuredTestingLogger.impl[IO]())
-      routes = CatalogRoutes.routes[IO](failingStore(boom), testLogger, noOpListCache)
+      routes = CatalogRoutes
+        .routes[IO](failingStore(boom), testLogger, noOpListCache)
       request = Request[IO](Method.POST, uri"/catalogs")
-        .withEntity(CreateCatalogRequest("Widget", "A very fine widget", 1999, "sku-widget-1"))
+        .withEntity(
+          CreateCatalogRequest(
+            "Widget",
+            "A very fine widget",
+            1999,
+            "sku-widget-1"
+          )
+        )
       response <- routes.orNotFound.run(request)
       logged <- testLogger.logged
     } yield {
@@ -160,6 +195,16 @@ class CatalogRoutesSuite extends CatsEffectSuite {
     }
   }
 
+  test("GET /catalogs/{id} returns 400 for a malformed (non-UUID) id") {
+    for {
+      store <- CatalogStore.inMemory[IO]
+      routes = CatalogRoutes.routes[IO](store, NoOpLogger[IO], noOpListCache)
+      response <- routes.orNotFound.run(
+        Request[IO](Method.GET, uri"/catalogs" / "not-a-uuid")
+      )
+    } yield assertEquals(response.status, Status.BadRequest)
+  }
+
   test(
     "GET /catalogs/{id} logs a received-request line and a completed line for a found entity"
   ) {
@@ -169,7 +214,12 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       routes = CatalogRoutes.routes[IO](store, testLogger, noOpListCache)
       postResponse <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/catalogs").withEntity(
-          CreateCatalogRequest("Widget", "A very fine widget", 1999, "sku-widget-1")
+          CreateCatalogRequest(
+            "Widget",
+            "A very fine widget",
+            1999,
+            "sku-widget-1"
+          )
         )
       )
       created <- postResponse.as[CatalogResponse]
@@ -207,7 +257,7 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       testLogger = StructuredTestingLogger.impl[IO]()
       routes = CatalogRoutes.routes[IO](store, testLogger, noOpListCache)
       response <- routes.orNotFound.run(
-        Request[IO](Method.GET, uri"/catalogs" / "unknown-id")
+        Request[IO](Method.GET, uri"/catalogs" / unknownCatalogId)
       )
       logged <- testLogger.logged
     } yield {
@@ -216,7 +266,7 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       assert(
         warns.exists(m =>
           m.message.toLowerCase.contains("not found") &&
-            m.ctx.get("catalog_id").contains("unknown-id")
+            m.ctx.get("catalog_id").contains(unknownCatalogId)
         ),
         s"expected a 'not found' WARN line with id context, got: $warns"
       )
@@ -229,13 +279,20 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       routes = CatalogRoutes.routes[IO](store, NoOpLogger[IO], noOpListCache)
       postResponse <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/catalogs").withEntity(
-          CreateCatalogRequest("Widget", "A very fine widget", 1999, "sku-widget-1")
+          CreateCatalogRequest(
+            "Widget",
+            "A very fine widget",
+            1999,
+            "sku-widget-1"
+          )
         )
       )
       created <- postResponse.as[CatalogResponse]
       patchResponse <- routes.orNotFound.run(
         Request[IO](Method.PATCH, uri"/catalogs" / created.id)
-          .withEntity(UpdateCatalogRequest("Widget", "A very fine widget", 1999))
+          .withEntity(
+            UpdateCatalogRequest("Widget", "A very fine widget", 1999)
+          )
       )
       updated <- patchResponse.as[CatalogResponse]
     } yield {
@@ -251,8 +308,10 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       store <- CatalogStore.inMemory[IO]
       routes = CatalogRoutes.routes[IO](store, NoOpLogger[IO], noOpListCache)
       response <- routes.orNotFound.run(
-        Request[IO](Method.PATCH, uri"/catalogs" / "unknown-id")
-          .withEntity(UpdateCatalogRequest("Widget", "A very fine widget", 1999))
+        Request[IO](Method.PATCH, uri"/catalogs" / unknownCatalogId)
+          .withEntity(
+            UpdateCatalogRequest("Widget", "A very fine widget", 1999)
+          )
       )
       body <- response.as[io.circe.Json]
     } yield {
@@ -273,14 +332,21 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       routes = CatalogRoutes.routes[IO](store, testLogger, noOpListCache)
       postResponse <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/catalogs").withEntity(
-          CreateCatalogRequest("Widget", "A very fine widget", 1999, "sku-widget-1")
+          CreateCatalogRequest(
+            "Widget",
+            "A very fine widget",
+            1999,
+            "sku-widget-1"
+          )
         )
       )
       created <- postResponse.as[CatalogResponse]
       _ <- testLogger.logged // drain POST's own log lines before the PATCH
       patchResponse <- routes.orNotFound.run(
         Request[IO](Method.PATCH, uri"/catalogs" / created.id)
-          .withEntity(UpdateCatalogRequest("Widget", "A very fine widget", 1999))
+          .withEntity(
+            UpdateCatalogRequest("Widget", "A very fine widget", 1999)
+          )
       )
       logged <- testLogger.logged
     } yield {
@@ -310,8 +376,10 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       testLogger = StructuredTestingLogger.impl[IO]()
       routes = CatalogRoutes.routes[IO](store, testLogger, noOpListCache)
       response <- routes.orNotFound.run(
-        Request[IO](Method.PATCH, uri"/catalogs" / "unknown-id")
-          .withEntity(UpdateCatalogRequest("Widget", "A very fine widget", 1999))
+        Request[IO](Method.PATCH, uri"/catalogs" / unknownCatalogId)
+          .withEntity(
+            UpdateCatalogRequest("Widget", "A very fine widget", 1999)
+          )
       )
       logged <- testLogger.logged
     } yield {
@@ -320,7 +388,7 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       assert(
         warns.exists(m =>
           m.message.toLowerCase.contains("not found") &&
-            m.ctx.get("catalog_id").contains("unknown-id")
+            m.ctx.get("catalog_id").contains(unknownCatalogId)
         ),
         s"expected a 'not found' WARN line with id context, got: $warns"
       )
@@ -335,7 +403,12 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       routes = CatalogRoutes.routes[IO](store, NoOpLogger[IO], noOpListCache)
       postResponse <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/catalogs").withEntity(
-          CreateCatalogRequest("Widget", "A very fine widget", 1999, "sku-widget-1")
+          CreateCatalogRequest(
+            "Widget",
+            "A very fine widget",
+            1999,
+            "sku-widget-1"
+          )
         )
       )
       created <- postResponse.as[CatalogResponse]
@@ -358,7 +431,7 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       store <- CatalogStore.inMemory[IO]
       routes = CatalogRoutes.routes[IO](store, NoOpLogger[IO], noOpListCache)
       response <- routes.orNotFound.run(
-        Request[IO](Method.DELETE, uri"/catalogs" / "unknown-id")
+        Request[IO](Method.DELETE, uri"/catalogs" / unknownCatalogId)
       )
       body <- response.as[io.circe.Json]
     } yield {
@@ -379,7 +452,12 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       routes = CatalogRoutes.routes[IO](store, testLogger, noOpListCache)
       postResponse <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/catalogs").withEntity(
-          CreateCatalogRequest("Widget", "A very fine widget", 1999, "sku-widget-1")
+          CreateCatalogRequest(
+            "Widget",
+            "A very fine widget",
+            1999,
+            "sku-widget-1"
+          )
         )
       )
       created <- postResponse.as[CatalogResponse]
@@ -415,7 +493,7 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       testLogger = StructuredTestingLogger.impl[IO]()
       routes = CatalogRoutes.routes[IO](store, testLogger, noOpListCache)
       response <- routes.orNotFound.run(
-        Request[IO](Method.DELETE, uri"/catalogs" / "unknown-id")
+        Request[IO](Method.DELETE, uri"/catalogs" / unknownCatalogId)
       )
       logged <- testLogger.logged
     } yield {
@@ -424,7 +502,7 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       assert(
         warns.exists(m =>
           m.message.toLowerCase.contains("not found") &&
-            m.ctx.get("catalog_id").contains("unknown-id")
+            m.ctx.get("catalog_id").contains(unknownCatalogId)
         ),
         s"expected a 'not found' WARN line with id context, got: $warns"
       )
@@ -437,13 +515,20 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       routes = CatalogRoutes.routes[IO](store, NoOpLogger[IO], noOpListCache)
       postResponse <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/catalogs").withEntity(
-          CreateCatalogRequest("Widget", "A very fine widget", 1999, "sku-widget-1")
+          CreateCatalogRequest(
+            "Widget",
+            "A very fine widget",
+            1999,
+            "sku-widget-1"
+          )
         )
       )
       created <- postResponse.as[CatalogResponse]
       putResponse <- routes.orNotFound.run(
         Request[IO](Method.PUT, uri"/catalogs" / created.id)
-          .withEntity(UpdateCatalogRequest("Widget", "A very fine widget", 1999))
+          .withEntity(
+            UpdateCatalogRequest("Widget", "A very fine widget", 1999)
+          )
       )
       replaced <- putResponse.as[CatalogResponse]
     } yield {
@@ -459,8 +544,10 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       store <- CatalogStore.inMemory[IO]
       routes = CatalogRoutes.routes[IO](store, NoOpLogger[IO], noOpListCache)
       response <- routes.orNotFound.run(
-        Request[IO](Method.PUT, uri"/catalogs" / "unknown-id")
-          .withEntity(UpdateCatalogRequest("Widget", "A very fine widget", 1999))
+        Request[IO](Method.PUT, uri"/catalogs" / unknownCatalogId)
+          .withEntity(
+            UpdateCatalogRequest("Widget", "A very fine widget", 1999)
+          )
       )
       body <- response.as[io.circe.Json]
     } yield {
@@ -480,14 +567,24 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       routes = CatalogRoutes.routes[IO](store, NoOpLogger[IO], noOpListCache)
       first <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/catalogs").withEntity(
-          CreateCatalogRequest("Widget", "A very fine widget", 1999, "sku-widget-1")
+          CreateCatalogRequest(
+            "Widget",
+            "A very fine widget",
+            1999,
+            "sku-widget-1"
+          )
         )
       )
       firstEntity <- first.as[CatalogResponse]
       _ <- IO.sleep(2.millis)
       second <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/catalogs").withEntity(
-          CreateCatalogRequest("Gadget", "A very fine gadget", 2999, "sku-gadget-1")
+          CreateCatalogRequest(
+            "Gadget",
+            "A very fine gadget",
+            2999,
+            "sku-gadget-1"
+          )
         )
       )
       secondEntity <- second.as[CatalogResponse]
@@ -516,7 +613,9 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       ).traverse { case (name, description, priceCents, sku) =>
         routes.orNotFound.run(
           Request[IO](Method.POST, uri"/catalogs")
-            .withEntity(CreateCatalogRequest(name, description, priceCents, sku))
+            .withEntity(
+              CreateCatalogRequest(name, description, priceCents, sku)
+            )
         ) <* IO.sleep(2.millis)
       }
       response <- routes.orNotFound.run(
@@ -536,7 +635,9 @@ class CatalogRoutesSuite extends CatsEffectSuite {
     }
   }
 
-  test("GET /catalogs on an empty store returns 200 with [] and X-Total-Count: 0") {
+  test(
+    "GET /catalogs on an empty store returns 200 with [] and X-Total-Count: 0"
+  ) {
     for {
       store <- CatalogStore.inMemory[IO]
       routes = CatalogRoutes.routes[IO](store, NoOpLogger[IO], noOpListCache)
@@ -592,7 +693,14 @@ class CatalogRoutesSuite extends CatsEffectSuite {
           CatalogRoutes.routes[IO](store, NoOpLogger[IO], noOpListCache)
         )
         request = Request[IO](Method.POST, uri"/catalogs")
-          .withEntity(CreateCatalogRequest("Widget", "A very fine widget", 1999, "sku-widget-1"))
+          .withEntity(
+            CreateCatalogRequest(
+              "Widget",
+              "A very fine widget",
+              1999,
+              "sku-widget-1"
+            )
+          )
         response <- routes.orNotFound.run(request)
         spans <- testTracer.finishedSpans
       } yield {
@@ -615,15 +723,15 @@ class CatalogRoutesSuite extends CatsEffectSuite {
             priceCents: Int,
             sku: String
         ): IO[Catalog] = baseStore.create(name, description, priceCents, sku)
-        def get(id: String): IO[Option[Catalog]] = baseStore.get(id)
+        def get(id: CatalogId): IO[Option[Catalog]] = baseStore.get(id)
         def update(
-            id: String,
+            id: CatalogId,
             name: String,
             description: String,
             priceCents: Int
         ): IO[Option[Catalog]] =
           baseStore.update(id, name, description, priceCents)
-        def delete(id: String): IO[Boolean] = baseStore.delete(id)
+        def delete(id: CatalogId): IO[Boolean] = baseStore.delete(id)
         def list(limit: Int, offset: Int): IO[(List[Catalog], Long)] =
           callCount.update(_ + 1) *> baseStore.list(limit, offset)
         def ping: IO[Boolean] = baseStore.ping
@@ -632,7 +740,12 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       routes = CatalogRoutes.routes[IO](countingStore, NoOpLogger[IO], cache)
       _ <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/catalogs").withEntity(
-          CreateCatalogRequest("Widget", "A very fine widget", 1999, "sku-widget-1")
+          CreateCatalogRequest(
+            "Widget",
+            "A very fine widget",
+            1999,
+            "sku-widget-1"
+          )
         )
       )
       first <- routes.orNotFound.run(Request[IO](Method.GET, uri"/catalogs"))
@@ -663,15 +776,15 @@ class CatalogRoutesSuite extends CatsEffectSuite {
             priceCents: Int,
             sku: String
         ): IO[Catalog] = baseStore.create(name, description, priceCents, sku)
-        def get(id: String): IO[Option[Catalog]] = baseStore.get(id)
+        def get(id: CatalogId): IO[Option[Catalog]] = baseStore.get(id)
         def update(
-            id: String,
+            id: CatalogId,
             name: String,
             description: String,
             priceCents: Int
         ): IO[Option[Catalog]] =
           baseStore.update(id, name, description, priceCents)
-        def delete(id: String): IO[Boolean] = baseStore.delete(id)
+        def delete(id: CatalogId): IO[Boolean] = baseStore.delete(id)
         def list(limit: Int, offset: Int): IO[(List[Catalog], Long)] =
           callCount.update(_ + 1) *> baseStore.list(limit, offset)
         def ping: IO[Boolean] = baseStore.ping
@@ -680,7 +793,12 @@ class CatalogRoutesSuite extends CatsEffectSuite {
       routes = CatalogRoutes.routes[IO](countingStore, NoOpLogger[IO], cache)
       _ <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/catalogs").withEntity(
-          CreateCatalogRequest("Widget", "A very fine widget", 1999, "sku-widget-1")
+          CreateCatalogRequest(
+            "Widget",
+            "A very fine widget",
+            1999,
+            "sku-widget-1"
+          )
         )
       )
       _ <- routes.orNotFound.run(

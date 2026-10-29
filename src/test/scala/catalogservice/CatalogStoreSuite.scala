@@ -1,8 +1,10 @@
 package catalogservice
 
 import cats.effect.IO
+import catalogservice.domain.CatalogId
 import munit.CatsEffectSuite
 
+import java.util.UUID
 import scala.concurrent.duration._
 
 class CatalogStoreSuite extends CatsEffectSuite {
@@ -10,14 +12,24 @@ class CatalogStoreSuite extends CatsEffectSuite {
   test("create returns a persisted entity with a generated id") {
     for {
       store <- CatalogStore.inMemory[IO]
-      entity <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
-    } yield assert(entity.id.nonEmpty)
+      entity <- store.create(
+        "Widget",
+        "A very fine widget",
+        1999,
+        "sku-widget-1"
+      )
+    } yield assert(entity.id.toString.nonEmpty)
   }
 
   test("get returns the persisted entity") {
     for {
       store <- CatalogStore.inMemory[IO]
-      created <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
+      created <- store.create(
+        "Widget",
+        "A very fine widget",
+        1999,
+        "sku-widget-1"
+      )
       found <- store.get(created.id)
     } yield assertEquals(found, Some(created))
   }
@@ -25,22 +37,39 @@ class CatalogStoreSuite extends CatsEffectSuite {
   test("get returns None for an unknown id") {
     for {
       store <- CatalogStore.inMemory[IO]
-      found <- store.get("unknown-id")
+      found <- store.get(CatalogId.fromUuid(UUID.randomUUID()))
     } yield assertEquals(found, None)
   }
 
   test("create produces distinct ids across calls") {
     for {
       store <- CatalogStore.inMemory[IO]
-      first <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
-      second <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
+      first <- store.create(
+        "Widget",
+        "A very fine widget",
+        1999,
+        "sku-widget-1"
+      )
+      second <- store.create(
+        "Widget",
+        "A very fine widget",
+        1999,
+        "sku-widget-1"
+      )
     } yield assertNotEquals(first.id, second.id)
   }
 
-  test("update returns the updated entity with updatedAt not moving backwards") {
+  test(
+    "update returns the updated entity with updatedAt not moving backwards"
+  ) {
     for {
       store <- CatalogStore.inMemory[IO]
-      created <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
+      created <- store.create(
+        "Widget",
+        "A very fine widget",
+        1999,
+        "sku-widget-1"
+      )
       updated <- store.update(created.id, "Widget", "A very fine widget", 1999)
     } yield {
       assertEquals(updated.map(_.id), Some(created.id))
@@ -54,14 +83,26 @@ class CatalogStoreSuite extends CatsEffectSuite {
   test("update returns None for an unknown id") {
     for {
       store <- CatalogStore.inMemory[IO]
-      result <- store.update("unknown-id", "Widget", "A very fine widget", 1999)
+      result <- store.update(
+        CatalogId.fromUuid(UUID.randomUUID()),
+        "Widget",
+        "A very fine widget",
+        1999
+      )
     } yield assertEquals(result, None)
   }
 
-  test("delete removes the entity and returns true, and get then returns None") {
+  test(
+    "delete removes the entity and returns true, and get then returns None"
+  ) {
     for {
       store <- CatalogStore.inMemory[IO]
-      created <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
+      created <- store.create(
+        "Widget",
+        "A very fine widget",
+        1999,
+        "sku-widget-1"
+      )
       deleted <- store.delete(created.id)
       found <- store.get(created.id)
     } yield {
@@ -73,7 +114,7 @@ class CatalogStoreSuite extends CatsEffectSuite {
   test("delete returns false for an unknown id") {
     for {
       store <- CatalogStore.inMemory[IO]
-      deleted <- store.delete("unknown-id")
+      deleted <- store.delete(CatalogId.fromUuid(UUID.randomUUID()))
     } yield assert(!deleted)
   }
 
@@ -87,9 +128,19 @@ class CatalogStoreSuite extends CatsEffectSuite {
   test("list returns entities newest-first") {
     for {
       store <- CatalogStore.inMemory[IO]
-      first <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
+      first <- store.create(
+        "Widget",
+        "A very fine widget",
+        1999,
+        "sku-widget-1"
+      )
       _ <- IO.sleep(2.millis)
-      second <- store.create("Gadget", "A very fine gadget", 2999, "sku-gadget-1")
+      second <- store.create(
+        "Gadget",
+        "A very fine gadget",
+        2999,
+        "sku-gadget-1"
+      )
       _ <- IO.sleep(2.millis)
       third <- store.create("Gizmo", "A very fine gizmo", 3999, "sku-gizmo-1")
       result <- store.list(20, 0)
@@ -102,15 +153,35 @@ class CatalogStoreSuite extends CatsEffectSuite {
   test("list respects limit and offset") {
     for {
       store <- CatalogStore.inMemory[IO]
-      first <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
+      first <- store.create(
+        "Widget",
+        "A very fine widget",
+        1999,
+        "sku-widget-1"
+      )
       _ <- IO.sleep(2.millis)
-      second <- store.create("Gadget", "A very fine gadget", 2999, "sku-gadget-1")
+      second <- store.create(
+        "Gadget",
+        "A very fine gadget",
+        2999,
+        "sku-gadget-1"
+      )
       _ <- IO.sleep(2.millis)
       third <- store.create("Gizmo", "A very fine gizmo", 3999, "sku-gizmo-1")
       _ <- IO.sleep(2.millis)
-      fourth <- store.create("Doohickey", "A very fine doohickey", 4999, "sku-doohickey-1")
+      fourth <- store.create(
+        "Doohickey",
+        "A very fine doohickey",
+        4999,
+        "sku-doohickey-1"
+      )
       _ <- IO.sleep(2.millis)
-      fifth <- store.create("Thingamajig", "A very fine thingamajig", 5999, "sku-thingamajig-1")
+      fifth <- store.create(
+        "Thingamajig",
+        "A very fine thingamajig",
+        5999,
+        "sku-thingamajig-1"
+      )
       result <- store.list(2, 1)
     } yield assertEquals(result._1.map(_.id), List(fourth.id, third.id))
   }
@@ -121,8 +192,18 @@ class CatalogStoreSuite extends CatsEffectSuite {
       _ <- store.create("Widget", "A very fine widget", 1999, "sku-widget-1")
       _ <- store.create("Gadget", "A very fine gadget", 2999, "sku-gadget-1")
       _ <- store.create("Gizmo", "A very fine gizmo", 3999, "sku-gizmo-1")
-      _ <- store.create("Doohickey", "A very fine doohickey", 4999, "sku-doohickey-1")
-      _ <- store.create("Thingamajig", "A very fine thingamajig", 5999, "sku-thingamajig-1")
+      _ <- store.create(
+        "Doohickey",
+        "A very fine doohickey",
+        4999,
+        "sku-doohickey-1"
+      )
+      _ <- store.create(
+        "Thingamajig",
+        "A very fine thingamajig",
+        5999,
+        "sku-thingamajig-1"
+      )
       result <- store.list(2, 0)
     } yield {
       assertEquals(result._1.size, 2)

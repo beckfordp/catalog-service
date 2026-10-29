@@ -1,8 +1,10 @@
 package catalogservice
 
+import cats.{Monad, MonadThrow}
 import cats.effect.Async
 import cats.syntax.all._
 import io.circe.Codec
+import catalogservice.domain.CatalogId
 import io.circe.generic.semiauto.deriveCodec
 import org.http4s.HttpRoutes
 import org.typelevel.log4cats.StructuredLogger
@@ -49,7 +51,7 @@ object CatalogResponse {
 
   def apply(entity: Catalog): CatalogResponse =
     CatalogResponse(
-      entity.id,
+      CatalogId.render(entity.id),
       entity.name,
       entity.description,
       entity.priceCents,
@@ -87,44 +89,44 @@ object CatalogRoutes {
       )
 
   private val getCatalogEndpoint: PublicEndpoint[
-    String,
+    CatalogId,
     CatalogError,
     CatalogResponse,
     Any
   ] =
     endpoint.get
-      .in("catalogs" / path[String]("id"))
+      .in("catalogs" / path[CatalogId]("id"))
       .out(jsonBody[CatalogResponse])
       .errorOut(notFoundOutput)
 
   private val updateCatalogEndpoint: PublicEndpoint[
-    (String, UpdateCatalogRequest),
+    (CatalogId, UpdateCatalogRequest),
     CatalogError,
     CatalogResponse,
     Any
   ] =
     endpoint.patch
-      .in("catalogs" / path[String]("id"))
+      .in("catalogs" / path[CatalogId]("id"))
       .in(jsonBody[UpdateCatalogRequest])
       .out(jsonBody[CatalogResponse])
       .errorOut(notFoundOutput)
 
   private val replaceCatalogEndpoint: PublicEndpoint[
-    (String, UpdateCatalogRequest),
+    (CatalogId, UpdateCatalogRequest),
     CatalogError,
     CatalogResponse,
     Any
   ] =
     endpoint.put
-      .in("catalogs" / path[String]("id"))
+      .in("catalogs" / path[CatalogId]("id"))
       .in(jsonBody[UpdateCatalogRequest])
       .out(jsonBody[CatalogResponse])
       .errorOut(notFoundOutput)
 
   private val deleteCatalogEndpoint
-      : PublicEndpoint[String, CatalogError, Unit, Any] =
+      : PublicEndpoint[CatalogId, CatalogError, Unit, Any] =
     endpoint.delete
-      .in("catalogs" / path[String]("id"))
+      .in("catalogs" / path[CatalogId]("id"))
       .out(statusCode(StatusCode.NoContent))
       .errorOut(notFoundOutput)
 
@@ -149,7 +151,7 @@ object CatalogRoutes {
       .out(header[String]("X-Total-Count"))
       .errorOut(invalidPaginationOutput)
 
-  def serverEndpoint[F[_]: Async](
+  def serverEndpoint[F[_]: MonadThrow](
       store: CatalogStore[F],
       logger: StructuredLogger[F]
   ): ServerEndpoint[Any, F] =
@@ -167,30 +169,33 @@ object CatalogRoutes {
             logger.error(Map.empty, error)("Persisting the catalog failed")
           }
         _ <- logger.info(
-          Map("catalog_id" -> entity.id)
+          Map("catalog_id" -> CatalogId.render(entity.id))
         )("Request completed")
       } yield CatalogResponse(entity)
     }
 
-  def getCatalogServerEndpoint[F[_]: Async](
+  def getCatalogServerEndpoint[F[_]: Monad](
       store: CatalogStore[F],
       logger: StructuredLogger[F]
   ): ServerEndpoint[Any, F] =
     getCatalogEndpoint.serverLogic[F] { id =>
+      val renderedId = CatalogId.render(id)
       for {
         _ <- logger.info(
-          Map("method" -> "GET", "path" -> s"/catalogs/$id", "catalog_id" -> id)
-        )(
-          "Received request"
-        )
+          Map(
+            "method" -> "GET",
+            "path" -> s"/catalogs/$renderedId",
+            "catalog_id" -> renderedId
+          )
+        )("Received request")
         result <- store.get(id).flatMap {
           case Some(entity) =>
             logger
-              .info(Map("catalog_id" -> id))("Request completed")
+              .info(Map("catalog_id" -> renderedId))("Request completed")
               .as(Right(CatalogResponse(entity)))
           case None =>
             logger
-              .warn(Map("catalog_id" -> id))("Catalog not found")
+              .warn(Map("catalog_id" -> renderedId))("Catalog not found")
               .as(Left(CatalogNotFound))
         }
       } yield result
@@ -200,20 +205,21 @@ object CatalogRoutes {
     * both call `CatalogStore.update` with the same required update body; only
     * the logged HTTP method differs.
     */
-  private def updateLogic[F[_]: Async](
+  private def updateLogic[F[_]: Monad](
       store: CatalogStore[F],
       logger: StructuredLogger[F],
       httpMethod: String
   )(
-      id: String,
+      id: CatalogId,
       req: UpdateCatalogRequest
-  ): F[Either[CatalogError, CatalogResponse]] =
+  ): F[Either[CatalogError, CatalogResponse]] = {
+    val renderedId = CatalogId.render(id)
     for {
       _ <- logger.info(
         Map(
           "method" -> httpMethod,
-          "path" -> s"/catalogs/$id",
-          "catalog_id" -> id
+          "path" -> s"/catalogs/$renderedId",
+          "catalog_id" -> renderedId
         )
       )("Received request")
       result <- store
@@ -221,16 +227,17 @@ object CatalogRoutes {
         .flatMap {
           case Some(entity) =>
             logger
-              .info(Map("catalog_id" -> id))("Request completed")
+              .info(Map("catalog_id" -> renderedId))("Request completed")
               .as(Right(CatalogResponse(entity)))
           case None =>
             logger
-              .warn(Map("catalog_id" -> id))("Catalog not found")
+              .warn(Map("catalog_id" -> renderedId))("Catalog not found")
               .as(Left(CatalogNotFound))
         }
     } yield result
+  }
 
-  def updateCatalogServerEndpoint[F[_]: Async](
+  def updateCatalogServerEndpoint[F[_]: Monad](
       store: CatalogStore[F],
       logger: StructuredLogger[F]
   ): ServerEndpoint[Any, F] =
@@ -238,7 +245,7 @@ object CatalogRoutes {
       updateLogic(store, logger, "PATCH")(id, req)
     }
 
-  def replaceCatalogServerEndpoint[F[_]: Async](
+  def replaceCatalogServerEndpoint[F[_]: Monad](
       store: CatalogStore[F],
       logger: StructuredLogger[F]
   ): ServerEndpoint[Any, F] =
@@ -246,27 +253,28 @@ object CatalogRoutes {
       updateLogic(store, logger, "PUT")(id, req)
     }
 
-  def deleteCatalogServerEndpoint[F[_]: Async](
+  def deleteCatalogServerEndpoint[F[_]: Monad](
       store: CatalogStore[F],
       logger: StructuredLogger[F]
   ): ServerEndpoint[Any, F] =
     deleteCatalogEndpoint.serverLogic[F] { id =>
+      val renderedId = CatalogId.render(id)
       for {
         _ <- logger.info(
           Map(
             "method" -> "DELETE",
-            "path" -> s"/catalogs/$id",
-            "catalog_id" -> id
+            "path" -> s"/catalogs/$renderedId",
+            "catalog_id" -> renderedId
           )
         )("Received request")
         result <- store.delete(id).flatMap {
           case true =>
             logger
-              .info(Map("catalog_id" -> id))("Request completed")
+              .info(Map("catalog_id" -> renderedId))("Request completed")
               .as(Right(()))
           case false =>
             logger
-              .warn(Map("catalog_id" -> id))("Catalog not found")
+              .warn(Map("catalog_id" -> renderedId))("Catalog not found")
               .as(Left(CatalogNotFound))
         }
       } yield result

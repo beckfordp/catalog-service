@@ -1,6 +1,7 @@
 package catalogservice
 
 import cats.effect.IO
+import catalogservice.domain.CatalogId
 import munit.CatsEffectSuite
 import org.http4s.circe.CirceEntityCodec._
 import org.http4s.implicits._
@@ -18,7 +19,14 @@ class CatalogDocsSuite extends CatsEffectSuite {
       endpoint = CatalogRoutes.serverEndpoint[IO](store, NoOpLogger[IO])
       routes = Docs.routes[IO]("Catalog Service", "1.0", List(endpoint))
       request = Request[IO](Method.POST, uri"/catalogs")
-        .withEntity(CreateCatalogRequest("Widget", "A very fine widget", 1999, "sku-widget-1"))
+        .withEntity(
+          CreateCatalogRequest(
+            "Widget",
+            "A very fine widget",
+            1999,
+            "sku-widget-1"
+          )
+        )
       response <- routes.orNotFound.run(request)
       entity <- response.as[CatalogResponse]
       docsResponse <- routes.orNotFound.run(
@@ -27,7 +35,7 @@ class CatalogDocsSuite extends CatsEffectSuite {
       docsBody <- docsResponse.bodyText.compile.string
     } yield {
       assertEquals(response.status, Status.Created)
-      assert(entity.id.nonEmpty)
+      assert(entity.id.toString.nonEmpty)
       assertEquals(docsResponse.status, Status.Ok)
       assert(clue(docsBody).contains("/catalogs"))
     }
