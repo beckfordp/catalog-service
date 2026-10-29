@@ -2,7 +2,7 @@
 
 This file tracks all major tracks for the project.
 
-- [ ] **Track: TD-15.6 — Cross-repo consistency hardening (catalog-service)**
+- [x] **Track: TD-15.6 — Cross-repo consistency hardening (catalog-service)**
   *Link: [./tracks/td15-catalog-hardening_20261029/](./tracks/td15-catalog-hardening_20261029/)*
 
 - [x] **Track: US-1.2: Redis read-through cache**
