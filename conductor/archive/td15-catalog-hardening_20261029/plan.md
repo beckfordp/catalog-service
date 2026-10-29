@@ -1,7 +1,7 @@
 # TD-15.6 Implementation Plan
 
 ## Phase 1 — Typed CatalogId
-- [x] Failing tests: CatalogId suite + malformed route id → 400; implement domain type, store, routes; update fixtures. — 61f0b5d
+- [x] Failing tests: CatalogId suite + malformed route id → 400; implement domain type, store, routes; update fixtures. — 4762e42
 - [x] Task: Conductor - User Manual Verification 'Phase 1 — Typed ids' (Protocol in workflow.md) — covered by tests
 
 ## Phase 2 — ScalaCheck and narrowing
