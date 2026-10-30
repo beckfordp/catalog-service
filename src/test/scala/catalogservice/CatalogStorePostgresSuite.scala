@@ -8,7 +8,7 @@ import catalogservice.domain.CatalogId
 import munit.CatsEffectSuite
 import org.testcontainers.utility.DockerImageName
 import org.typelevel.otel4s.metrics.Meter
-import purerest.metrics.Metrics
+import purerest.metrics.{LatencyBuckets, Metrics}
 import skunk.Session
 import skunk.implicits._
 
@@ -256,6 +256,12 @@ class CatalogStorePostgresSuite
                 data.isDefined,
                 s"expected a db.client.operation.duration series, got: $metrics"
               )
+              data.get.getHistogramData.getPoints.asScala.foreach { point =>
+                assertEquals(
+                  point.getBoundaries.asScala.map(_.doubleValue).toVector,
+                  LatencyBuckets.seconds.boundaries
+                )
+              }
               val dbOperationKey =
                 io.opentelemetry.api.common.AttributeKey
                   .stringKey("db.operation")

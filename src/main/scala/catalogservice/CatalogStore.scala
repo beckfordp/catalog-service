@@ -7,6 +7,7 @@ import catalogservice.domain.CatalogId
 import fs2.io.net.Network
 import org.typelevel.otel4s.Attribute
 import org.typelevel.otel4s.metrics.Meter
+import purerest.metrics.LatencyBuckets
 import skunk.Session
 import skunk.codec.all._
 import skunk.implicits._
@@ -189,6 +190,7 @@ object CatalogStore {
         meter
           .histogram[Double]("db.client.operation.duration")
           .withUnit("s")
+          .withExplicitBucketBoundaries(LatencyBuckets.seconds)
           .create
           .map { histogram =>
             /** Times a Skunk query, recording a `db.client.operation.duration`
