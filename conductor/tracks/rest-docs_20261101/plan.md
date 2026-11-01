@@ -15,3 +15,6 @@
 ## Phase 4: Smoke test [checkpoint: 50474f5]
 - [x] Task: `scripts/verify-rest-docs.sh` — run service, fetch `/docs/docs.yaml`, assert summaries/descriptions/examples + narrowed errors; PASS — 66 checks; compose override ports 55432/56379 (5432 held by fulfilment-service) 0d15671
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Smoke test' (Protocol in workflow.md) — `scripts/verify-rest-docs.sh` PASS
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions ed0ba1d
