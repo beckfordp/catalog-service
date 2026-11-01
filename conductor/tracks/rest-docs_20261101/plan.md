@@ -5,7 +5,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: purerestlib 0.7.3' (Protocol in workflow.md) — covered by suite
 
 ## Phase 2: Per-endpoint error outputs
-- [ ] Task: `CatalogDocsSuite` walks each endpoint's errorOutput statuses (FR2 subsets)
+- [x] Task: `CatalogDocsSuite` walks each endpoint's errorOutput statuses (FR2 subsets) — tapir output traversal helper; POST/list 400, GET/DELETE 404, PATCH/PUT 400+404, ready 503; 98/98 e178b6c
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Per-endpoint error outputs' (Protocol in workflow.md)
 
 ## Phase 3: Descriptions and examples
