@@ -129,4 +129,27 @@ class CatalogDocsSuite extends CatsEffectSuite {
       )
     }
   }
+
+  test("every endpoint is documented") {
+    for {
+      store <- CatalogStore.inMemory[IO]
+      cache <- CatalogListCache.inMemory[IO]
+    } yield {
+      val logger = NoOpLogger[IO]
+      val endpoints = List(
+        CatalogRoutes.serverEndpoint[IO](store, logger),
+        CatalogRoutes.getCatalogServerEndpoint[IO](store, logger),
+        CatalogRoutes.updateCatalogServerEndpoint[IO](store, logger),
+        CatalogRoutes.replaceCatalogServerEndpoint[IO](store, logger),
+        CatalogRoutes.deleteCatalogServerEndpoint[IO](store, logger),
+        CatalogRoutes.listCatalogsServerEndpoint[IO](store, logger, cache),
+        HealthRoutes.healthServerEndpoint[IO],
+        HealthRoutes.readyServerEndpoint[IO](store)
+      )
+      assertEquals(
+        Docs.undocumented(endpoints.map(_.endpoint)).map(_.render),
+        Nil
+      )
+    }
+  }
 }

@@ -18,15 +18,23 @@ import org.http4s.HttpRoutes
 import org.typelevel.log4cats.StructuredLogger
 import sttp.model.StatusCode
 import sttp.tapir._
+import sttp.tapir.Schema.annotations.{description, encodedExample}
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
 import sttp.tapir.server.ServerEndpoint
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 
+@description("A new catalog entry.")
 final case class CreateCatalogRequest(
+    @description("Product name.") @encodedExample("Rolex Submariner")
     name: String,
+    @description("What the product is.")
+    @encodedExample("Iconic diver's watch, 41mm stainless steel case")
     description: String,
+    @description("Price in cents, at least 0.") @encodedExample(950000)
     priceCents: Int,
+    @description("Stock-keeping unit.")
+    @encodedExample("watch-rolex-submariner")
     sku: String
 )
 
@@ -34,9 +42,14 @@ object CreateCatalogRequest {
   implicit val codec: Codec[CreateCatalogRequest] = deriveCodec
 }
 
+@description("Fields to update; `sku` is immutable.")
 final case class UpdateCatalogRequest(
+    @description("Product name.") @encodedExample("Rolex Submariner")
     name: String,
+    @description("What the product is.")
+    @encodedExample("Iconic diver's watch, 41mm stainless steel case")
     description: String,
+    @description("Price in cents, at least 0.") @encodedExample(950000)
     priceCents: Int
 )
 
@@ -44,13 +57,26 @@ object UpdateCatalogRequest {
   implicit val codec: Codec[UpdateCatalogRequest] = deriveCodec
 }
 
+@description("A catalog entry as stored.")
 final case class CatalogResponse(
+    @description("Catalog id (UUID).")
+    @encodedExample("3f2b8c1e-7a4d-4e9b-9c2a-1d5e6f7a8b90")
     id: String,
+    @description("Product name.") @encodedExample("Rolex Submariner")
     name: String,
+    @description("What the product is.")
+    @encodedExample("Iconic diver's watch, 41mm stainless steel case")
     description: String,
+    @description("Price in cents.") @encodedExample(950000)
     priceCents: Int,
+    @description("Stock-keeping unit.")
+    @encodedExample("watch-rolex-submariner")
     sku: String,
+    @description("When the entry was created (UTC).")
+    @encodedExample("2026-11-01T09:30:00Z")
     createdAt: java.time.Instant,
+    @description("When the entry last changed (UTC).")
+    @encodedExample("2026-11-01T09:45:00Z")
     updatedAt: java.time.Instant
 )
 
@@ -69,7 +95,12 @@ object CatalogResponse {
     )
 }
 
-final case class ErrorResponse(error: String)
+@description("Error body.")
+final case class ErrorResponse(
+    @description("Human-readable reason.")
+    @encodedExample("Catalog not found")
+    error: String
+)
 
 object ErrorResponse {
   implicit val codec: Codec[ErrorResponse] = deriveCodec
@@ -77,11 +108,65 @@ object ErrorResponse {
 
 object CatalogRoutes {
 
+  // REST docs convention (purerest README "Documenting endpoints"): every
+  // endpoint, parameter, DTO field and error is described, and
+  // CatalogDocsSuite asserts Docs.undocumented finds no gaps.
+  private val tag = "catalogs"
+
+  // Each fixed error's body, shared by its documented example and its real
+  // mapping.
+  private val notFoundBody = ErrorResponse("Catalog not found")
+  private val invalidPaginationBody =
+    ErrorResponse("Invalid pagination parameters")
+
+  private val exampleCreateRequest = CreateCatalogRequest(
+    "Rolex Submariner",
+    "Iconic diver's watch, 41mm stainless steel case",
+    950000,
+    "watch-rolex-submariner"
+  )
+
+  private val exampleUpdateRequest = UpdateCatalogRequest(
+    "Rolex Submariner",
+    "Iconic diver's watch, 41mm stainless steel case",
+    950000
+  )
+
+  private val exampleCatalog = CatalogResponse(
+    "3f2b8c1e-7a4d-4e9b-9c2a-1d5e6f7a8b90",
+    exampleCreateRequest.name,
+    exampleCreateRequest.description,
+    exampleCreateRequest.priceCents,
+    exampleCreateRequest.sku,
+    java.time.Instant.parse("2026-11-01T09:30:00Z"),
+    java.time.Instant.parse("2026-11-01T09:45:00Z")
+  )
+
+  private val idPath: EndpointInput.PathCapture[CatalogId] =
+    path[CatalogId]("id")
+      .description("Catalog id (UUID). A malformed id returns 400.")
+      .example(
+        CatalogId.fromUuid(
+          java.util.UUID.fromString("3f2b8c1e-7a4d-4e9b-9c2a-1d5e6f7a8b90")
+        )
+      )
+
+  private def errorBody(
+      what: String,
+      example: ErrorResponse
+  ): EndpointIO.Body[String, ErrorResponse] =
+    jsonBody[ErrorResponse].description(what).example(example)
+
   private val invalidCatalogVariant
       : EndpointOutput.OneOfVariant[InvalidCatalog] =
     oneOfVariant(
       statusCode(StatusCode.BadRequest)
-        .and(jsonBody[ErrorResponse])
+        .and(
+          errorBody(
+            "The body breaks a catalog rule: blank `name`/`sku` or `priceCents` < 0.",
+            ErrorResponse("priceCents must be at least 0, got -1")
+          )
+        )
         .map(e => InvalidCatalog(e.error))(e => ErrorResponse(e.reason))
     )
 
@@ -93,19 +178,22 @@ object CatalogRoutes {
   ] =
     endpoint.post
       .in("catalogs")
-      .in(jsonBody[CreateCatalogRequest])
+      .in(jsonBody[CreateCatalogRequest].example(exampleCreateRequest))
       .out(statusCode(StatusCode.Created))
-      .out(jsonBody[CatalogResponse])
+      .out(jsonBody[CatalogResponse].example(exampleCatalog))
       .errorOut(oneOf[InvalidCatalog](invalidCatalogVariant))
+      .summary("Create a catalog entry")
+      .description(
+        "Adds a product. Blank `name`/`sku` or `priceCents` < 0 → 400. Not idempotent (new id each call; SKU uniqueness not enforced). Cached list pages are not invalidated."
+      )
+      .tag(tag)
 
   private val notFoundVariant
       : EndpointOutput.OneOfVariant[CatalogNotFound.type] =
     oneOfVariant(
       statusCode(StatusCode.NotFound)
-        .and(jsonBody[ErrorResponse])
-        .map[CatalogNotFound.type](_ => CatalogNotFound)(_ =>
-          ErrorResponse("Catalog not found")
-        )
+        .and(errorBody("No catalog with this id.", notFoundBody))
+        .map[CatalogNotFound.type](_ => CatalogNotFound)(_ => notFoundBody)
     )
 
   private val notFoundOutput: EndpointOutput[CatalogNotFound.type] =
@@ -124,9 +212,14 @@ object CatalogRoutes {
     Any
   ] =
     endpoint.get
-      .in("catalogs" / path[CatalogId]("id"))
-      .out(jsonBody[CatalogResponse])
+      .in("catalogs" / idPath)
+      .out(jsonBody[CatalogResponse].example(exampleCatalog))
       .errorOut(notFoundOutput)
+      .summary("Get a catalog entry")
+      .description(
+        "Read from Postgres (not cached). 404 unknown id; 400 malformed id (tapir decode failure)."
+      )
+      .tag(tag)
 
   private val updateCatalogEndpoint: PublicEndpoint[
     (CatalogId, UpdateCatalogRequest),
@@ -135,10 +228,15 @@ object CatalogRoutes {
     Any
   ] =
     endpoint.patch
-      .in("catalogs" / path[CatalogId]("id"))
-      .in(jsonBody[UpdateCatalogRequest])
-      .out(jsonBody[CatalogResponse])
+      .in("catalogs" / idPath)
+      .in(jsonBody[UpdateCatalogRequest].example(exampleUpdateRequest))
+      .out(jsonBody[CatalogResponse].example(exampleCatalog))
       .errorOut(updateErrorOutput)
+      .summary("Update a catalog entry")
+      .description(
+        "Sets name/description/priceCents (all required; `sku` immutable). Safe to repeat (only `updatedAt` advances). Body validated before lookup: 400, then 404."
+      )
+      .tag(tag)
 
   private val replaceCatalogEndpoint: PublicEndpoint[
     (CatalogId, UpdateCatalogRequest),
@@ -147,25 +245,36 @@ object CatalogRoutes {
     Any
   ] =
     endpoint.put
-      .in("catalogs" / path[CatalogId]("id"))
-      .in(jsonBody[UpdateCatalogRequest])
-      .out(jsonBody[CatalogResponse])
+      .in("catalogs" / idPath)
+      .in(jsonBody[UpdateCatalogRequest].example(exampleUpdateRequest))
+      .out(jsonBody[CatalogResponse].example(exampleCatalog))
       .errorOut(updateErrorOutput)
+      .summary("Update a catalog entry (replace)")
+      .description("Same as PATCH.")
+      .tag(tag)
 
   private val deleteCatalogEndpoint
       : PublicEndpoint[CatalogId, CatalogNotFound.type, Unit, Any] =
     endpoint.delete
-      .in("catalogs" / path[CatalogId]("id"))
+      .in("catalogs" / idPath)
       .out(statusCode(StatusCode.NoContent))
       .errorOut(notFoundOutput)
+      .summary("Delete a catalog entry")
+      .description("Hard delete; repeating returns 404.")
+      .tag(tag)
 
   private val invalidPaginationOutput: EndpointOutput[InvalidPagination.type] =
     oneOf[InvalidPagination.type](
       oneOfVariant(
         statusCode(StatusCode.BadRequest)
-          .and(jsonBody[ErrorResponse])
+          .and(
+            errorBody(
+              "`limit` outside 1–100 or `offset` < 0.",
+              invalidPaginationBody
+            )
+          )
           .map[InvalidPagination.type](_ => InvalidPagination)(_ =>
-            ErrorResponse("Invalid pagination parameters")
+            invalidPaginationBody
           )
       )
     )
@@ -178,11 +287,28 @@ object CatalogRoutes {
   ] =
     endpoint.get
       .in("catalogs")
-      .in(query[Option[Int]]("limit"))
-      .in(query[Option[Int]]("offset"))
-      .out(jsonBody[List[CatalogResponse]])
-      .out(header[String]("X-Total-Count"))
+      .in(
+        query[Option[Int]]("limit")
+          .description("Maximum entries to return (1–100, default 20).")
+          .example(Some(20))
+      )
+      .in(
+        query[Option[Int]]("offset")
+          .description("Entries to skip (default 0).")
+          .example(Some(0))
+      )
+      .out(jsonBody[List[CatalogResponse]].example(List(exampleCatalog)))
+      .out(
+        header[String]("X-Total-Count")
+          .description("Total catalog entries, independent of limit/offset.")
+          .example("42")
+      )
       .errorOut(invalidPaginationOutput)
+      .summary("List catalog entries")
+      .description(
+        "One page, newest first (ties by id); `X-Total-Count` is the true total. Redis-cached per (limit, offset) with a 60s default TTL and no write invalidation; falls back to Postgres if Redis fails. Bad limit/offset → 400."
+      )
+      .tag(tag)
 
   def serverEndpoint[F[_]: MonadThrow](
       store: CatalogStore[F],
