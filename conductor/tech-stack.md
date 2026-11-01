@@ -16,7 +16,10 @@
 
 ## API layer
 - tapir 1.11.25 — route definitions and generated Swagger/OpenAPI docs
-  (`purerest.docs.Docs`), served at `/docs`, kept in sync by construction
+  (`purerest.docs.Docs`), served at `/docs`, kept in sync by construction.
+  Every endpoint, parameter, DTO field and error is described with examples
+  (purerest README "Documenting endpoints", gluon TD-20); `CatalogDocsSuite`
+  asserts `Docs.undocumented` is empty
 
 ## Persistence
 - skunk 1.0.0 — pure-FP, non-blocking Postgres access (runtime queries)
