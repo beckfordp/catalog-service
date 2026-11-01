@@ -3,7 +3,7 @@ package catalogservice
 import cats.effect.{Async, Ref, Resource, Sync}
 import cats.effect.std.Console
 import cats.syntax.all._
-import catalogservice.domain.CatalogId
+import catalogservice.domain.{Catalog, CatalogId}
 import fs2.io.net.Network
 import org.typelevel.otel4s.Attribute
 import org.typelevel.otel4s.metrics.Meter
@@ -15,16 +15,6 @@ import skunk.implicits._
 import java.time.OffsetDateTime
 import java.util.UUID
 import scala.concurrent.duration.SECONDS
-
-final case class Catalog(
-    id: CatalogId,
-    name: String,
-    description: String,
-    priceCents: Int,
-    sku: String,
-    createdAt: java.time.Instant,
-    updatedAt: java.time.Instant
-)
 
 trait CatalogStore[F[_]] {
   def create(

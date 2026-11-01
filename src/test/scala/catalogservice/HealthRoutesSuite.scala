@@ -1,7 +1,7 @@
 package catalogservice
 
 import cats.effect.IO
-import catalogservice.domain.CatalogId
+import catalogservice.domain.{Catalog, CatalogId}
 import munit.CatsEffectSuite
 import org.http4s.implicits._
 import org.http4s.{Method, Request, Status}

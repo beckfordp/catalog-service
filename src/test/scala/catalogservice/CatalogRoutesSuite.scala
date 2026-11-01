@@ -2,7 +2,7 @@ package catalogservice
 
 import cats.effect.IO
 import cats.syntax.all._
-import catalogservice.domain.CatalogId
+import catalogservice.domain.{Catalog, CatalogId}
 import munit.CatsEffectSuite
 import org.http4s.circe.CirceEntityCodec._
 import org.http4s.implicits._

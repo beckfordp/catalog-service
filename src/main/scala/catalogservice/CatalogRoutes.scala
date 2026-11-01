@@ -4,7 +4,16 @@ import cats.{Monad, MonadThrow}
 import cats.effect.Async
 import cats.syntax.all._
 import io.circe.Codec
-import catalogservice.domain.CatalogId
+import catalogservice.domain.{
+  Catalog,
+  CatalogError,
+  CatalogId,
+  CatalogNotFound,
+  CatalogRules,
+  InvalidCatalog,
+  InvalidPagination,
+  Page
+}
 import io.circe.generic.semiauto.deriveCodec
 import org.http4s.HttpRoutes
 import org.typelevel.log4cats.StructuredLogger
@@ -69,9 +78,17 @@ object ErrorResponse {
 
 object CatalogRoutes {
 
+  private val invalidCatalogVariant
+      : EndpointOutput.OneOfVariant[InvalidCatalog] =
+    oneOfVariant(
+      statusCode(StatusCode.BadRequest)
+        .and(jsonBody[ErrorResponse])
+        .map(e => InvalidCatalog(e.error))(e => ErrorResponse(e.reason))
+    )
+
   private val createCatalogEndpoint: PublicEndpoint[
     CreateCatalogRequest,
-    Unit,
+    InvalidCatalog,
     CatalogResponse,
     Any
   ] =
@@ -80,13 +97,26 @@ object CatalogRoutes {
       .in(jsonBody[CreateCatalogRequest])
       .out(statusCode(StatusCode.Created))
       .out(jsonBody[CatalogResponse])
+      .errorOut(oneOf[InvalidCatalog](invalidCatalogVariant))
+
+  private val notFoundVariant
+      : EndpointOutput.OneOfVariant[CatalogNotFound.type] =
+    oneOfVariant(
+      statusCode(StatusCode.NotFound)
+        .and(jsonBody[ErrorResponse])
+        .map[CatalogNotFound.type](_ => CatalogNotFound)(_ =>
+          ErrorResponse("Catalog not found")
+        )
+    )
 
   private val notFoundOutput: EndpointOutput[CatalogError] =
-    statusCode(StatusCode.NotFound)
-      .and(jsonBody[ErrorResponse])
-      .map[CatalogError](_ => CatalogNotFound)(_ =>
-        ErrorResponse("Catalog not found")
-      )
+    oneOf[CatalogError](notFoundVariant)
+
+  /** PATCH/PUT: a body breaking `CatalogRules` (400) or an unknown id (404). */
+  private type UpdateError = InvalidCatalog | CatalogNotFound.type
+
+  private val updateErrorOutput: EndpointOutput[UpdateError] =
+    oneOf[UpdateError](invalidCatalogVariant, notFoundVariant)
 
   private val getCatalogEndpoint: PublicEndpoint[
     CatalogId,
@@ -101,7 +131,7 @@ object CatalogRoutes {
 
   private val updateCatalogEndpoint: PublicEndpoint[
     (CatalogId, UpdateCatalogRequest),
-    CatalogError,
+    UpdateError,
     CatalogResponse,
     Any
   ] =
@@ -109,11 +139,11 @@ object CatalogRoutes {
       .in("catalogs" / path[CatalogId]("id"))
       .in(jsonBody[UpdateCatalogRequest])
       .out(jsonBody[CatalogResponse])
-      .errorOut(notFoundOutput)
+      .errorOut(updateErrorOutput)
 
   private val replaceCatalogEndpoint: PublicEndpoint[
     (CatalogId, UpdateCatalogRequest),
-    CatalogError,
+    UpdateError,
     CatalogResponse,
     Any
   ] =
@@ -121,7 +151,7 @@ object CatalogRoutes {
       .in("catalogs" / path[CatalogId]("id"))
       .in(jsonBody[UpdateCatalogRequest])
       .out(jsonBody[CatalogResponse])
-      .errorOut(notFoundOutput)
+      .errorOut(updateErrorOutput)
 
   private val deleteCatalogEndpoint
       : PublicEndpoint[CatalogId, CatalogError, Unit, Any] =
@@ -155,23 +185,42 @@ object CatalogRoutes {
       store: CatalogStore[F],
       logger: StructuredLogger[F]
   ): ServerEndpoint[Any, F] =
-    createCatalogEndpoint.serverLogicSuccess[F] { req =>
-      for {
-        _ <- logger.info(
-          Map(
-            "method" -> "POST",
-            "path" -> "/catalogs"
-          )
-        )("Received request")
-        entity <- store
-          .create(req.name, req.description, req.priceCents, req.sku)
-          .onError { case error =>
-            logger.error(Map.empty, error)("Persisting the catalog failed")
-          }
-        _ <- logger.info(
-          Map("catalog_id" -> CatalogId.render(entity.id))
-        )("Request completed")
-      } yield CatalogResponse(entity)
+    createCatalogEndpoint.serverLogic[F] { req =>
+      logger.info(
+        Map(
+          "method" -> "POST",
+          "path" -> "/catalogs"
+        )
+      )("Received request") *>
+        (CatalogRules.newCatalog(
+          req.name,
+          req.description,
+          req.priceCents,
+          req.sku
+        ) match {
+          case Left(invalid) =>
+            logger
+              .warn(Map("reason" -> invalid.reason))("Invalid catalog")
+              .as(Left(invalid))
+          case Right(valid) =>
+            for {
+              entity <- store
+                .create(
+                  valid.details.name,
+                  valid.details.description,
+                  valid.details.priceCents,
+                  valid.sku
+                )
+                .onError { case error =>
+                  logger.error(Map.empty, error)(
+                    "Persisting the catalog failed"
+                  )
+                }
+              _ <- logger.info(
+                Map("catalog_id" -> CatalogId.render(entity.id))
+              )("Request completed")
+            } yield Right(CatalogResponse(entity))
+        })
     }
 
   def getCatalogServerEndpoint[F[_]: Monad](
@@ -212,7 +261,7 @@ object CatalogRoutes {
   )(
       id: CatalogId,
       req: UpdateCatalogRequest
-  ): F[Either[CatalogError, CatalogResponse]] = {
+  ): F[Either[UpdateError, CatalogResponse]] = {
     val renderedId = CatalogId.render(id)
     for {
       _ <- logger.info(
@@ -222,18 +271,31 @@ object CatalogRoutes {
           "catalog_id" -> renderedId
         )
       )("Received request")
-      result <- store
-        .update(id, req.name, req.description, req.priceCents)
-        .flatMap {
-          case Some(entity) =>
-            logger
-              .info(Map("catalog_id" -> renderedId))("Request completed")
-              .as(Right(CatalogResponse(entity)))
-          case None =>
-            logger
-              .warn(Map("catalog_id" -> renderedId))("Catalog not found")
-              .as(Left(CatalogNotFound))
-        }
+      result <- CatalogRules.details(
+        req.name,
+        req.description,
+        req.priceCents
+      ) match {
+        case Left(invalid) =>
+          logger
+            .warn(Map("catalog_id" -> renderedId, "reason" -> invalid.reason))(
+              "Invalid catalog"
+            )
+            .as(Left(invalid))
+        case Right(details) =>
+          store
+            .update(id, details.name, details.description, details.priceCents)
+            .flatMap {
+              case Some(entity) =>
+                logger
+                  .info(Map("catalog_id" -> renderedId))("Request completed")
+                  .as(Right(CatalogResponse(entity)))
+              case None =>
+                logger
+                  .warn(Map("catalog_id" -> renderedId))("Catalog not found")
+                  .as(Left(CatalogNotFound))
+            }
+      }
     } yield result
   }
 
@@ -280,9 +342,6 @@ object CatalogRoutes {
       } yield result
     }
 
-  private val defaultLimit = 20
-  private val maxLimit = 100
-
   /** Cache-aside: a hit returns the cached page as-is; a miss queries
     * `CatalogStore.list`, populates the cache (TTL-only freshness - see
     * spec.md's "Out of Scope"), and returns the freshly-queried result.
@@ -293,20 +352,23 @@ object CatalogRoutes {
       cache: CatalogListCache[F]
   ): ServerEndpoint[Any, F] =
     listCatalogsEndpoint.serverLogic[F] { case (limitParam, offsetParam) =>
-      val limit = limitParam.getOrElse(defaultLimit)
-      val offset = offsetParam.getOrElse(0)
       for {
         _ <- logger.info(
           Map("method" -> "GET", "path" -> "/catalogs")
         )("Received request")
-        result <-
-          if (limit <= 0 || limit > maxLimit || offset < 0) {
+        result <- Page.from(limitParam, offsetParam) match {
+          case Left(invalid) =>
             logger
               .warn(
-                Map("limit" -> limit.toString, "offset" -> offset.toString)
+                Map(
+                  "limit" -> limitParam.fold("")(_.toString),
+                  "offset" -> offsetParam.fold("")(_.toString)
+                )
               )("Invalid pagination parameters")
-              .as(Left(InvalidPagination))
-          } else {
+              .as(Left(invalid))
+          case Right(page) =>
+            val limit = page.limit
+            val offset = page.offset
             cache.get(limit, offset).flatMap {
               case Some((catalogs, total)) =>
                 logger
@@ -333,7 +395,7 @@ object CatalogRoutes {
                       .as(Right((responses, total.toString)))
                 }
             }
-          }
+        }
       } yield result
     }
 
