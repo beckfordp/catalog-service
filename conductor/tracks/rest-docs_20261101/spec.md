@@ -34,11 +34,10 @@ order-service `rest-docs_20261101`, and assert it in a test.
 ## Out of Scope
 - Behaviour changes; bulk lookup-by-SKU backlog item.
 
-## Appendix: proposed descriptions (awaiting user approval)
+## Appendix: approved descriptions (2026-11-01)
 
-> DRAFT — not applied to code. The user reviews this appendix before any
-> `.summary`/`.description`/`.tag` or `@description`/`@encodedExample`
-> annotation is added.
+> Approved by the user 2026-11-01, exactly as proposed. Applied to code in
+> Phase 3.
 
 ### Endpoints
 | Endpoint | tag | summary | description |
