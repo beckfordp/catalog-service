@@ -5,7 +5,7 @@ This file tracks all major tracks for the project.
 - [x] **Track: US-1.2: Redis read-through cache**
   *Link: [./tracks/catalog-list-cache_20261003/](./tracks/catalog-list-cache_20261003/)*
 
-- [~] **Track: TD-16.4 catalog review fixes**
+- [x] **Track: TD-16.4 catalog review fixes**
   *Link: [./tracks/catalog-review-fixes_20261101/](./tracks/catalog-review-fixes_20261101/)*
 
 ---
