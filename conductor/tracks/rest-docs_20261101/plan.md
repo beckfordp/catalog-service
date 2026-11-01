@@ -4,9 +4,9 @@
 - [x] Task: bump `purerestlibVersion` 0.4.0 → 0.7.3; fix API drift until suite green; sync tech-stack.md — tapir/http4s already aligned, no drift, 97/97 13a8df8
 - [x] Task: Conductor - User Manual Verification 'Phase 1: purerestlib 0.7.3' (Protocol in workflow.md) — covered by suite
 
-## Phase 2: Per-endpoint error outputs
+## Phase 2: Per-endpoint error outputs [checkpoint: 330a91a]
 - [x] Task: `CatalogDocsSuite` walks each endpoint's errorOutput statuses (FR2 subsets) — tapir output traversal helper; POST/list 400, GET/DELETE 404, PATCH/PUT 400+404, ready 503; 98/98 e178b6c
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Per-endpoint error outputs' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Per-endpoint error outputs' (Protocol in workflow.md) — covered by suite
 
 ## Phase 3: Descriptions and examples
 - [ ] Task: coverage test first (`Docs.undocumented == Nil` over all 8 endpoints, red) → summaries/descriptions/tags, param/header descriptions + examples, DTO annotations, body examples, error descriptions + examples; green
