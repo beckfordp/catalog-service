@@ -8,6 +8,8 @@ import org.http4s.implicits._
 import org.http4s.{Method, Request, Status}
 import org.typelevel.log4cats.noop.NoOpLogger
 import purerest.docs.Docs
+import sttp.tapir.EndpointOutput
+import sttp.tapir.server.ServerEndpoint
 
 class CatalogDocsSuite extends CatsEffectSuite {
 
@@ -61,6 +63,70 @@ class CatalogDocsSuite extends CatsEffectSuite {
       assertEquals(docsResponse.status, Status.Ok)
       assert(clue(docsBody).contains("/catalogs"))
       assert(clue(docsBody).contains("X-Total-Count"))
+    }
+  }
+
+  /** Every fixed status an output can produce (tapir's own traversal is
+    * internal).
+    */
+  private def statuses(output: EndpointOutput[?]): List[Int] =
+    output match {
+      case EndpointOutput.FixedStatusCode(code, _, _) => List(code.code)
+      case EndpointOutput.OneOf(variants, _)          =>
+        variants.flatMap(v => statuses(v.output))
+      case EndpointOutput.Pair(left, right, _, _) =>
+        statuses(left) ++ statuses(right)
+      case EndpointOutput.MappedPair(pair, _) => statuses(pair)
+      case _                                  => Nil
+    }
+
+  private def errorStatuses(endpoint: ServerEndpoint[Any, IO]): List[Int] =
+    statuses(endpoint.endpoint.errorOutput).sorted
+
+  test("each endpoint documents only the errors it can return") {
+    for {
+      store <- CatalogStore.inMemory[IO]
+      cache <- CatalogListCache.inMemory[IO]
+    } yield {
+      val logger = NoOpLogger[IO]
+      assertEquals(
+        errorStatuses(CatalogRoutes.serverEndpoint[IO](store, logger)),
+        List(400)
+      )
+      assertEquals(
+        errorStatuses(
+          CatalogRoutes.listCatalogsServerEndpoint[IO](store, logger, cache)
+        ),
+        List(400)
+      )
+      assertEquals(
+        errorStatuses(
+          CatalogRoutes.getCatalogServerEndpoint[IO](store, logger)
+        ),
+        List(404)
+      )
+      assertEquals(
+        errorStatuses(
+          CatalogRoutes.updateCatalogServerEndpoint[IO](store, logger)
+        ),
+        List(400, 404)
+      )
+      assertEquals(
+        errorStatuses(
+          CatalogRoutes.replaceCatalogServerEndpoint[IO](store, logger)
+        ),
+        List(400, 404)
+      )
+      assertEquals(
+        errorStatuses(
+          CatalogRoutes.deleteCatalogServerEndpoint[IO](store, logger)
+        ),
+        List(404)
+      )
+      assertEquals(
+        errorStatuses(HealthRoutes.readyServerEndpoint[IO](store)),
+        List(503)
+      )
     }
   }
 }
