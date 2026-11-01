@@ -347,7 +347,9 @@ object CatalogRoutes {
 
   /** Cache-aside: a hit returns the cached page as-is; a miss queries
     * `CatalogStore.list`, populates the cache (TTL-only freshness - see
-    * spec.md's "Out of Scope"), and returns the freshly-queried result.
+    * spec.md's "Out of Scope"), and returns the freshly-queried result. A cache
+    * read error is treated as a miss and a write error is logged, so Redis
+    * being down never fails the request.
     */
   def listCatalogsServerEndpoint[F[_]: MonadThrow](
       store: CatalogStore[F],
