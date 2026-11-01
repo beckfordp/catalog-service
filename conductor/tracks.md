@@ -5,9 +5,6 @@ This file tracks all major tracks for the project.
 - [x] **Track: US-1.2: Redis read-through cache**
   *Link: [./tracks/catalog-list-cache_20261003/](./tracks/catalog-list-cache_20261003/)*
 
-- [x] **Track: TD-20.7 REST docs**
-  *Link: [./tracks/rest-docs_20261101/](./tracks/rest-docs_20261101/)*
-
 ---
 
 ## Backlog
