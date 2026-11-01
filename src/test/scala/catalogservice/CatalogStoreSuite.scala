@@ -1,6 +1,9 @@
 package catalogservice
 
 import cats.effect.IO
+import cats.effect.std.UUIDGen
+import cats.effect.{Clock, Concurrent}
+import cats.syntax.all._
 import catalogservice.domain.CatalogId
 import munit.CatsEffectSuite
 
@@ -209,5 +212,35 @@ class CatalogStoreSuite extends CatsEffectSuite {
       assertEquals(result._1.size, 2)
       assertEquals(result._2, 5L)
     }
+  }
+
+  test(
+    "list pages through tied createdAt rows by id, newest first, with no repeats"
+  ) {
+    // A frozen clock, so every create ties.
+    val frozen: Clock[IO] = new Clock[IO] {
+      def applicative = IO.asyncForIO
+      def monotonic = IO.pure(1.second)
+      def realTime = IO.pure(1.second)
+    }
+    locally(
+      for {
+        store <- CatalogStore.inMemory[IO](using
+          Concurrent[IO],
+          frozen,
+          UUIDGen[IO]
+        )
+        created <- (1 to 5).toList.traverse(n =>
+          store.create(s"Item $n", "", n, s"sku-$n")
+        )
+        pages <- (0 until 5).toList.traverse(offset => store.list(1, offset))
+      } yield {
+        assertEquals(created.map(_.createdAt).distinct.size, 1)
+        assertEquals(
+          pages.flatMap(_._1).map(c => CatalogId.render(c.id)),
+          created.map(c => CatalogId.render(c.id)).sorted.reverse
+        )
+      }
+    )
   }
 }

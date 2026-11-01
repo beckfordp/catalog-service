@@ -380,6 +380,24 @@ class CatalogStorePostgresSuite
     }
   }
 
+  private def tieCreatedAt(config: PostgresConfig): IO[Unit] = {
+    import org.typelevel.otel4s.trace.Tracer.Implicits.noop
+    import org.typelevel.otel4s.metrics.Meter.Implicits.noop
+    Session
+      .single[IO](
+        host = config.host,
+        port = config.port,
+        user = config.user,
+        database = config.database,
+        password = Some(config.password)
+      )
+      .use(
+        _.execute(
+          sql"""UPDATE "catalog" SET created_at = '2026-01-01T00:00:00Z'""".command
+        ).void
+      )
+  }
+
   test("list returns entities newest-first") {
     withContainers { postgres =>
       val config = configFor(postgres)
@@ -500,6 +518,28 @@ class CatalogStorePostgresSuite
             assertEquals(result._1.size, 2)
             assertEquals(result._2, 5L)
           }
+        }
+    }
+  }
+
+  test(
+    "list pages through tied created_at rows by id, newest first, with no repeats"
+  ) {
+    withContainers { postgres =>
+      val config = configFor(postgres)
+      Migrations.run[IO](config) *> truncateCatalogTable(config) *> CatalogStore
+        .postgres[IO](config, Meter.noop[IO])
+        .use { store =>
+          for {
+            created <- (1 to 5).toList
+              .traverse(n => store.create(s"Item $n", "", n, s"sku-$n"))
+            _ <- tieCreatedAt(config)
+            pages <- (0 until 5).toList
+              .traverse(offset => store.list(1, offset))
+          } yield assertEquals(
+            pages.flatMap(_._1).map(c => CatalogId.render(c.id)),
+            created.map(c => CatalogId.render(c.id)).sorted.reverse
+          )
         }
     }
   }

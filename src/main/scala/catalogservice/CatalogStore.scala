@@ -87,8 +87,13 @@ object CatalogStore {
 
         def list(limit: Int, offset: Int): F[(List[Catalog], Long)] =
           ref.get.map { entities =>
+            // Mirrors the SQL `ORDER BY created_at DESC, id DESC`: the id
+            // tiebreak (Postgres compares uuids bytewise = lowercase-hex
+            // string order) keeps pages stable when timestamps tie.
             val sorted = entities.values.toList
-              .sortBy(_.createdAt)(using Ordering[java.time.Instant].reverse)
+              .sortBy(c => (c.createdAt, CatalogId.render(c.id)))(using
+                Ordering[(java.time.Instant, String)].reverse
+              )
             (sorted.slice(offset, offset + limit), sorted.size.toLong)
           }
 
@@ -138,7 +143,8 @@ object CatalogStore {
     int4
   )
 
-  // count(*) OVER() rides along with each row so the page and its total are
+  // `id DESC` breaks created_at ties so offset pages never repeat or skip a
+  // row. count(*) OVER() rides along with each row so the page and its total are
   // read from one consistent query result, not two separate round trips that
   // could otherwise observe different data if a write lands in between.
   private val selectCatalogPage: skunk.Query[
@@ -149,7 +155,7 @@ object CatalogStore {
       SELECT id, name, description, price_cents, sku, created_at, updated_at,
              count(*) OVER() AS total_count
       FROM "catalog"
-      ORDER BY created_at DESC
+      ORDER BY created_at DESC, id DESC
       LIMIT $int4 OFFSET $int4
     """.query(
       uuid *: text *: text *: int4 *: text *: timestamptz *: timestamptz *: int8
