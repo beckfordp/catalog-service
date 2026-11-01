@@ -6,7 +6,6 @@ import cats.syntax.all._
 import io.circe.Codec
 import catalogservice.domain.{
   Catalog,
-  CatalogError,
   CatalogId,
   CatalogNotFound,
   CatalogRules,
@@ -109,8 +108,8 @@ object CatalogRoutes {
         )
     )
 
-  private val notFoundOutput: EndpointOutput[CatalogError] =
-    oneOf[CatalogError](notFoundVariant)
+  private val notFoundOutput: EndpointOutput[CatalogNotFound.type] =
+    oneOf[CatalogNotFound.type](notFoundVariant)
 
   /** PATCH/PUT: a body breaking `CatalogRules` (400) or an unknown id (404). */
   private type UpdateError = InvalidCatalog | CatalogNotFound.type
@@ -120,7 +119,7 @@ object CatalogRoutes {
 
   private val getCatalogEndpoint: PublicEndpoint[
     CatalogId,
-    CatalogError,
+    CatalogNotFound.type,
     CatalogResponse,
     Any
   ] =
@@ -154,22 +153,26 @@ object CatalogRoutes {
       .errorOut(updateErrorOutput)
 
   private val deleteCatalogEndpoint
-      : PublicEndpoint[CatalogId, CatalogError, Unit, Any] =
+      : PublicEndpoint[CatalogId, CatalogNotFound.type, Unit, Any] =
     endpoint.delete
       .in("catalogs" / path[CatalogId]("id"))
       .out(statusCode(StatusCode.NoContent))
       .errorOut(notFoundOutput)
 
-  private val invalidPaginationOutput: EndpointOutput[CatalogError] =
-    statusCode(StatusCode.BadRequest)
-      .and(jsonBody[ErrorResponse])
-      .map[CatalogError](_ => InvalidPagination)(_ =>
-        ErrorResponse("Invalid pagination parameters")
+  private val invalidPaginationOutput: EndpointOutput[InvalidPagination.type] =
+    oneOf[InvalidPagination.type](
+      oneOfVariant(
+        statusCode(StatusCode.BadRequest)
+          .and(jsonBody[ErrorResponse])
+          .map[InvalidPagination.type](_ => InvalidPagination)(_ =>
+            ErrorResponse("Invalid pagination parameters")
+          )
       )
+    )
 
   private val listCatalogsEndpoint: PublicEndpoint[
     (Option[Int], Option[Int]),
-    CatalogError,
+    InvalidPagination.type,
     (List[CatalogResponse], String),
     Any
   ] =
@@ -346,58 +349,64 @@ object CatalogRoutes {
     * `CatalogStore.list`, populates the cache (TTL-only freshness - see
     * spec.md's "Out of Scope"), and returns the freshly-queried result.
     */
-  def listCatalogsServerEndpoint[F[_]: Async](
+  def listCatalogsServerEndpoint[F[_]: MonadThrow](
       store: CatalogStore[F],
       logger: StructuredLogger[F],
       cache: CatalogListCache[F]
-  ): ServerEndpoint[Any, F] =
-    listCatalogsEndpoint.serverLogic[F] { case (limitParam, offsetParam) =>
+  ): ServerEndpoint[Any, F] = {
+    def pageContext(page: Page, cacheOutcome: String): Map[String, String] =
+      Map(
+        "limit" -> page.limit.toString,
+        "offset" -> page.offset.toString,
+        "cache" -> cacheOutcome
+      )
+
+    // Postgres is the source of truth; a failed cache write is logged, never
+    // surfaced.
+    def fromStore(page: Page): F[(List[CatalogResponse], String)] =
       for {
-        _ <- logger.info(
-          Map("method" -> "GET", "path" -> "/catalogs")
-        )("Received request")
-        result <- Page.from(limitParam, offsetParam) match {
-          case Left(invalid) =>
-            logger
-              .warn(
-                Map(
-                  "limit" -> limitParam.fold("")(_.toString),
-                  "offset" -> offsetParam.fold("")(_.toString)
-                )
-              )("Invalid pagination parameters")
-              .as(Left(invalid))
-          case Right(page) =>
-            val limit = page.limit
-            val offset = page.offset
-            cache.get(limit, offset).flatMap {
-              case Some((catalogs, total)) =>
-                logger
-                  .info(
-                    Map(
-                      "limit" -> limit.toString,
-                      "offset" -> offset.toString,
-                      "cache" -> "hit"
-                    )
-                  )("Request completed")
-                  .as(Right((catalogs, total.toString)))
-              case None =>
-                store.list(limit, offset).flatMap { case (catalogs, total) =>
-                  val responses = catalogs.map(CatalogResponse(_))
-                  cache.set(limit, offset, responses, total) *>
-                    logger
-                      .info(
-                        Map(
-                          "limit" -> limit.toString,
-                          "offset" -> offset.toString,
-                          "cache" -> "miss"
-                        )
-                      )("Request completed")
-                      .as(Right((responses, total.toString)))
-                }
-            }
-        }
-      } yield result
+        (catalogs, total) <- store.list(page.limit, page.offset)
+        responses = catalogs.map(CatalogResponse(_))
+        _ <- cache
+          .set(page.limit, page.offset, responses, total)
+          .handleErrorWith(error =>
+            logger.warn(pageContext(page, "write_error"), error)(
+              "Catalog-list cache write failed - response unaffected"
+            )
+          )
+        _ <- logger.info(pageContext(page, "miss"))("Request completed")
+      } yield (responses, total.toString)
+
+    def serve(page: Page): F[(List[CatalogResponse], String)] =
+      cache.get(page.limit, page.offset).attempt.flatMap {
+        case Right(Some((catalogs, total))) =>
+          logger
+            .info(pageContext(page, "hit"))("Request completed")
+            .as((catalogs, total.toString))
+        case Right(None) => fromStore(page)
+        case Left(error) =>
+          logger.warn(pageContext(page, "read_error"), error)(
+            "Catalog-list cache read failed - falling back to Postgres"
+          ) *> fromStore(page)
+      }
+
+    listCatalogsEndpoint.serverLogic[F] { case (limitParam, offsetParam) =>
+      logger.info(Map("method" -> "GET", "path" -> "/catalogs"))(
+        "Received request"
+      ) *> (Page.from(limitParam, offsetParam) match {
+        case Left(invalid) =>
+          logger
+            .warn(
+              Map(
+                "limit" -> limitParam.fold("")(_.toString),
+                "offset" -> offsetParam.fold("")(_.toString)
+              )
+            )("Invalid pagination parameters")
+            .as(Left(invalid))
+        case Right(page) => serve(page).map(Right(_))
+      })
     }
+  }
 
   def routes[F[_]: Async](
       store: CatalogStore[F],

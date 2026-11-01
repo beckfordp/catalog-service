@@ -1,7 +1,7 @@
 package catalogservice
 
-import cats.effect.{Async, Ref, Resource, Sync}
-import cats.effect.std.Console
+import cats.effect.{Async, Clock, Concurrent, Ref, Resource, Sync}
+import cats.effect.std.{Console, UUIDGen}
 import cats.syntax.all._
 import catalogservice.domain.{Catalog, CatalogId}
 import fs2.io.net.Network
@@ -37,7 +37,7 @@ trait CatalogStore[F[_]] {
 
 object CatalogStore {
 
-  def inMemory[F[_]: Sync]: F[CatalogStore[F]] =
+  def inMemory[F[_]: Concurrent: Clock: UUIDGen]: F[CatalogStore[F]] =
     Ref.of[F, Map[CatalogId, Catalog]](Map.empty).map { ref =>
       new CatalogStore[F] {
         def create(
@@ -47,10 +47,8 @@ object CatalogStore {
             sku: String
         ): F[Catalog] =
           for {
-            id <- Sync[F].delay(
-              CatalogId.fromUuid(java.util.UUID.randomUUID())
-            )
-            now <- Sync[F].realTimeInstant
+            id <- UUIDGen[F].randomUUID.map(CatalogId.fromUuid)
+            now <- Clock[F].realTimeInstant
             entity = Catalog(id, name, description, priceCents, sku, now, now)
             _ <- ref.update(_ + (id -> entity))
           } yield entity
@@ -64,7 +62,7 @@ object CatalogStore {
             priceCents: Int
         ): F[Option[Catalog]] =
           for {
-            now <- Sync[F].realTimeInstant
+            now <- Clock[F].realTimeInstant
             updated <- ref.modify { entities =>
               entities.get(id) match {
                 case None           => (entities, None)
@@ -94,7 +92,7 @@ object CatalogStore {
             (sorted.slice(offset, offset + limit), sorted.size.toLong)
           }
 
-        def ping: F[Boolean] = Sync[F].pure(true)
+        def ping: F[Boolean] = Concurrent[F].pure(true)
       }
     }
 

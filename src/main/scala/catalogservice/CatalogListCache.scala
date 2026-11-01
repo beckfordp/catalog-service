@@ -1,6 +1,7 @@
 package catalogservice
 
-import cats.effect.{Async, Ref, Resource, Sync}
+import cats.Functor
+import cats.effect.{Async, Concurrent, Ref, Resource}
 import cats.syntax.all._
 import dev.profunktor.redis4cats.Redis
 import dev.profunktor.redis4cats.RedisCommands
@@ -45,7 +46,7 @@ object CatalogListCache {
     * behavior themselves (that's `CatalogListCacheSuite`'s job, against a real
     * Redis).
     */
-  def inMemory[F[_]: Sync]: F[CatalogListCache[F]] =
+  def inMemory[F[_]: Concurrent]: F[CatalogListCache[F]] =
     Ref.of[F, Map[(Int, Int), CatalogListCacheEntry]](Map.empty).map { ref =>
       new CatalogListCache[F] {
         def get(
@@ -71,7 +72,7 @@ object CatalogListCache {
   private def keyFor(limit: Int, offset: Int): String =
     s"catalog-list:$limit:$offset"
 
-  def fromRedisCommands[F[_]: Async](
+  def fromRedisCommands[F[_]: Functor](
       commands: RedisCommands[F, String, String],
       ttl: FiniteDuration
   ): CatalogListCache[F] =
