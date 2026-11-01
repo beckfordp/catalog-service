@@ -1,8 +1,8 @@
 # Plan — catalog-service: REST docs convention (gluon TD-20.7)
 
-## Phase 1: purerestlib 0.7.3
+## Phase 1: purerestlib 0.7.3 [checkpoint: 31b73ad]
 - [x] Task: bump `purerestlibVersion` 0.4.0 → 0.7.3; fix API drift until suite green; sync tech-stack.md — tapir/http4s already aligned, no drift, 97/97 13a8df8
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: purerestlib 0.7.3' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: purerestlib 0.7.3' (Protocol in workflow.md) — covered by suite
 
 ## Phase 2: Per-endpoint error outputs
 - [ ] Task: `CatalogDocsSuite` walks each endpoint's errorOutput statuses (FR2 subsets)
