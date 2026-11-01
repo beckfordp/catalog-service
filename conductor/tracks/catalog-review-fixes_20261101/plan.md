@@ -9,5 +9,5 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Edge and effects' (Protocol in workflow.md) — covered by suite
 
 ## Phase 3: Stable pagination (M3)
-- [ ] Task: tests first — tied `created_at` pages are disjoint and ordered by id desc (in-memory under `TestControl`, Postgres via direct insert) (red) → `ORDER BY created_at DESC, id DESC`; green
+- [x] Task: tests first — tied `created_at` pages are disjoint and ordered by id desc (in-memory with a frozen `Clock` — no testkit dep, Postgres via `UPDATE` tying created_at) (red) → `ORDER BY created_at DESC, id DESC`; green — red 2/2; 97/97 05b4978
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Stable pagination' (Protocol in workflow.md)
