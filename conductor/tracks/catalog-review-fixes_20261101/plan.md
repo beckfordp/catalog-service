@@ -5,7 +5,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Pure core' (Protocol in workflow.md) — covered by suite
 
 ## Phase 2: Edge and effects (H2, M1, M2)
-- [ ] Task: tests first — cache read error and write error still serve `GET /catalogs` from the store, logged WARN (red) → fallback; per-endpoint error types; narrow capabilities; green
+- [x] Task: tests first — cache read error and write error still serve `GET /catalogs` from the store, logged WARN (red) → fallback; per-endpoint error types; narrow capabilities; green — red 2/2 (500); store inMemory Concurrent+Clock+UUIDGen, cache inMemory Concurrent, fromRedisCommands Functor, list MonadThrow; 95/95 48137f4
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Edge and effects' (Protocol in workflow.md)
 
 ## Phase 3: Stable pagination (M3)
