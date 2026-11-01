@@ -1,7 +1,7 @@
 # Plan — catalog-service review fixes (gluon TD-16.4)
 
 ## Phase 1: Pure core (H1, H3, L1)
-- [ ] Task: tests first — `PageSuite` (table + ScalaCheck), `CatalogRulesSuite`, route 400s for negative price / blank name / blank sku on POST/PATCH/PUT (red) → `domain.Page`, `domain.CatalogRules`, `InvalidCatalog`; move `Catalog`/`CatalogError` into `domain/`; green
+- [x] Task: tests first — `PageSuite` (table + ScalaCheck), `CatalogRulesSuite`, route 400s for negative price / blank name / blank sku on POST/PATCH/PUT (red) → `domain.Page`, `domain.CatalogRules`, `InvalidCatalog`; move `Catalog`/`CatalogError` into `domain/`; green — red: compile + route 201s; fields validated before lookup; store signature kept (route passes parsed fields); 93/93 ff6ca38
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Pure core' (Protocol in workflow.md)
 
 ## Phase 2: Edge and effects (H2, M1, M2)
