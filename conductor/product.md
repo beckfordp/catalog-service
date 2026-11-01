@@ -23,7 +23,9 @@ field-spec applied from `gluon/specs/catalog.yaml`, then hand-extended per
 - **Catalog** — `name` (String), `description` (String), `priceCents` (Int),
   `sku` (String, create-only — accepted on `POST /catalogs`, omitted from
   `PATCH`/`PUT` bodies and never changed after creation), plus generator
-  defaults `id`, `createdAt`, `updatedAt`. The field-spec
+  defaults `id`, `createdAt`, `updatedAt`. Field rules (`domain.CatalogRules`,
+  TD-16.4): non-blank `name`/`sku`, `priceCents` ≥ 0, else `400`
+  (`InvalidCatalog`) on `POST`/`PATCH`/`PUT`. The field-spec
   (`gluon/specs/catalog.yaml`) was represented faithfully by codegen — no
   flagged gaps like order-service's `status` enum-as-String or
   `order_items` collection.
@@ -34,7 +36,8 @@ field-spec applied from `gluon/specs/catalog.yaml`, then hand-extended per
   directly, out of scope for this Conductor setup.
 - **`GET /catalogs`** (US-1.1, done 2026-10-02) — browse/list endpoint.
   Optional `limit` (default 20, max 100) and `offset` (default 0) query
-  params; results ordered newest-first (`created_at DESC`); plain JSON array
+  params (`domain.Page`); results ordered newest-first (`created_at DESC`,
+  ties broken by `id DESC` so pages are stable); plain JSON array
   response (no envelope) plus an `X-Total-Count` response header for the
   true total; invalid `limit`/`offset` → `400` (`InvalidPagination`). No
   filtering/sorting beyond newest-first, no cursor-based pagination — both
@@ -46,7 +49,9 @@ field-spec applied from `gluon/specs/catalog.yaml`, then hand-extended per
   hit still returns a correct `X-Total-Count` without touching the store.
   TTL-only freshness (60s default, configurable) — creating/updating/
   deleting a catalog does **not** invalidate any cached page, matching
-  order-service's `OrderHistoryCache` pattern (US-8.1).
+  order-service's `OrderHistoryCache` pattern (US-8.1). A Redis read error
+  falls back to Postgres and a write error is logged; neither fails the
+  request (TD-16.4).
 
 ## User stories in scope (gluon/docs/user-stories.md)
 - US-1.1 — browse/list catalog endpoints (done 2026-10-02)
