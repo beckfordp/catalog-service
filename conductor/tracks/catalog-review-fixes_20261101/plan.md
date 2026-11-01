@@ -11,3 +11,6 @@
 ## Phase 3: Stable pagination (M3) [checkpoint: 8f9962f]
 - [x] Task: tests first — tied `created_at` pages are disjoint and ordered by id desc (in-memory with a frozen `Clock` — no testkit dep, Postgres via `UPDATE` tying created_at) (red) → `ORDER BY created_at DESC, id DESC`; green — red 2/2; 97/97 05b4978
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Stable pagination' (Protocol in workflow.md) — covered by suite (Postgres Testcontainers)
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions 737882e
