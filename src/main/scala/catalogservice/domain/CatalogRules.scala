@@ -15,14 +15,30 @@ final case class NewCatalog(details: CatalogDetails, sku: String)
   */
 object CatalogRules {
 
+  /** Client-facing message for a blank `name`; shared with the REST docs
+    * example so the two can't drift.
+    */
+  val blankNameMessage: String = "name must not be blank"
+
+  /** Client-facing message for a negative `priceCents`; shared with the REST
+    * docs example so the two can't drift.
+    */
+  def negativePriceMessage(priceCents: Int): String =
+    s"priceCents must be at least 0, got $priceCents"
+
+  /** Client-facing message for a blank `sku`; shared with the REST docs example
+    * so the two can't drift.
+    */
+  val blankSkuMessage: String = "sku must not be blank"
+
   def details(
       name: String,
       description: String,
       priceCents: Int
   ): Either[InvalidCatalog, CatalogDetails] =
-    if (name.isBlank) Left(InvalidCatalog("name must not be blank"))
+    if (name.isBlank) Left(InvalidCatalog(blankNameMessage))
     else if (priceCents < 0)
-      Left(InvalidCatalog(s"priceCents must be at least 0, got $priceCents"))
+      Left(InvalidCatalog(negativePriceMessage(priceCents)))
     else Right(CatalogDetails(name, description, priceCents))
 
   def newCatalog(
@@ -35,7 +51,7 @@ object CatalogRules {
       Either.cond(
         !sku.isBlank,
         NewCatalog(d, sku),
-        InvalidCatalog("sku must not be blank")
+        InvalidCatalog(blankSkuMessage)
       )
     }
 }

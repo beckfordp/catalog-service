@@ -61,8 +61,10 @@ wait_ready() {
 
 echo "1. docker compose up -d (fresh volumes; host ports $POSTGRES_HOST_PORT/$REDIS_HOST_PORT)..."
 "${COMPOSE[@]}" down -v >/dev/null 2>&1 || true
-"${COMPOSE[@]}" up -d
-echo "   OK: postgres/redis starting"
+# --wait blocks on the compose healthchecks: Flyway fails fast if Postgres is
+# still starting when the service boots.
+"${COMPOSE[@]}" up -d --wait --wait-timeout 90
+echo "   OK: postgres/redis healthy"
 
 echo
 echo "2. Starting catalog-service (sbt run) in the background..."
@@ -166,6 +168,23 @@ def example(content):
 
 post, list_op = paths["/catalogs"]["post"], paths["/catalogs"]["get"]
 get_one = paths["/catalogs/{id}"]["get"]
+
+def param_example(op, name):
+    for p in op.get("parameters", []):
+        if p["name"] == name:
+            return p.get("example", p.get("schema", {}).get("example"))
+    return None
+
+check("GET /catalogs limit example is 20", param_example(list_op, "limit") == 20)
+check("GET /catalogs offset example is 0", param_example(list_op, "offset") == 0)
+check("GET /catalogs/{id} id example is the approved UUID",
+      param_example(get_one, "id") == "3f2b8c1e-7a4d-4e9b-9c2a-1d5e6f7a8b90")
+total_example = (header.get("example") if header.get("example") is not None
+                 else header.get("schema", {}).get("example"))
+# tapir renders the numeric string example as a YAML number; the value is what
+# matters.
+check(f"GET /catalogs X-Total-Count example is 42 (got {total_example!r})",
+      str(total_example) == "42")
 
 check("POST /catalogs request body has an example", has_example(body(post)))
 check("POST /catalogs 201 response body has an example", has_example(body(post, "201")))

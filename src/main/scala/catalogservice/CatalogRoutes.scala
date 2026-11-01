@@ -164,7 +164,7 @@ object CatalogRoutes {
         .and(
           errorBody(
             "The body breaks a catalog rule: blank `name`/`sku` or `priceCents` < 0.",
-            ErrorResponse("priceCents must be at least 0, got -1")
+            ErrorResponse(CatalogRules.negativePriceMessage(-1))
           )
         )
         .map(e => InvalidCatalog(e.error))(e => ErrorResponse(e.reason))
