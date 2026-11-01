@@ -25,6 +25,7 @@ through the spec/plan questions and promote it into a real track above.
   tactical fix for now; if a third call site needs a similar join, revisit
   as an ADR-level decision (BFF service vs. a Kafka-driven CQRS read-model)
   rather than adding another one-off endpoint.
+- TD-20.7 — REST docs: endpoint/parameter/DTO descriptions and examples, coverage test (see `gluon/TECHNICAL_DEBT.md` TD-20.7)
 
 
 ---
