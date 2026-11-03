@@ -21,8 +21,13 @@ object Main extends IOApp.Simple {
       )
       _ <- Migrations.run[IO](config.postgres)
       _ <- Tracing.console[IO](config.serviceName).use { tracer =>
-        Metrics.oteljava[IO](config.serviceName, config.metricsPort).use {
-          meter =>
+        Metrics
+          .oteljava[IO](
+            config.serviceName,
+            config.metricsPort,
+            Some(runtime.metrics)
+          )
+          .use { meter =>
             for {
               logger <- Logging.create[IO](tracer, config.serviceName)
               _ <- logger.info(
@@ -33,8 +38,10 @@ object Main extends IOApp.Simple {
               )("catalog-service starting")
               _ <- CatalogStore.postgres[IO](config.postgres, meter).use {
                 store =>
-                  CatalogListCache.resource[IO](config.redis, logger).use {
-                    cache =>
+                  CatalogListCache
+                    .resource[IO](config.redis, logger)
+                    .evalMap(CatalogListCache.metered[IO](_, meter))
+                    .use { cache =>
                       val docsRoutes = Docs.routes[IO](
                         "Catalog Service",
                         "1.0",
@@ -70,10 +77,10 @@ object Main extends IOApp.Simple {
                         .withHttpApp(routes.orNotFound)
                         .build
                         .useForever
-                  }
+                    }
               }
             } yield ()
-        }
+          }
       }
     } yield ()
 }

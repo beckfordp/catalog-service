@@ -7,7 +7,7 @@ import catalogservice.domain.{Catalog, CatalogId}
 import fs2.io.net.Network
 import org.typelevel.otel4s.Attribute
 import org.typelevel.otel4s.metrics.Meter
-import purerest.metrics.LatencyBuckets
+import purerest.metrics.{LatencyBuckets, PoolMetrics}
 import skunk.Session
 import skunk.codec.all._
 import skunk.implicits._
@@ -180,6 +180,7 @@ object CatalogStore {
       .withUserAndPassword(config.user, config.password)
       .withDatabase(config.database)
       .pooled(max = 10)
+      .evalMap(PoolMetrics.instrument(meter, "catalog")(_))
       .evalMap { pool =>
         meter
           .histogram[Double]("db.client.operation.duration")

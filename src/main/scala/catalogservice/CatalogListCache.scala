@@ -1,6 +1,6 @@
 package catalogservice
 
-import cats.Functor
+import cats.{Functor, Monad}
 import cats.effect.{Async, Concurrent, Ref, Resource}
 import cats.syntax.all._
 import dev.profunktor.redis4cats.Redis
@@ -12,6 +12,8 @@ import io.circe.generic.semiauto.deriveCodec
 import io.circe.parser.decode
 import io.circe.syntax._
 import org.typelevel.log4cats.StructuredLogger
+import org.typelevel.otel4s.Attribute
+import org.typelevel.otel4s.metrics.Meter
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -66,6 +68,34 @@ object CatalogListCache {
           ref.update(
             _ + ((limit, offset) -> CatalogListCacheEntry(catalogs, total))
           )
+      }
+    }
+
+  /** `catalog.cache.requests{result=hit|miss}` per list-page lookup (gluon
+    * PERF-4.8): the hit ratio is what keeps browse traffic off Postgres.
+    */
+  def metered[F[_]: Monad](
+      cache: CatalogListCache[F],
+      meter: Meter[F]
+  ): F[CatalogListCache[F]] =
+    meter.counter[Long]("catalog.cache.requests").create.map { requests =>
+      new CatalogListCache[F] {
+        def get(
+            limit: Int,
+            offset: Int
+        ): F[Option[(List[CatalogResponse], Long)]] =
+          cache.get(limit, offset).flatTap { cached =>
+            requests.inc(
+              Attribute("result", if (cached.isDefined) "hit" else "miss")
+            )
+          }
+
+        def set(
+            limit: Int,
+            offset: Int,
+            catalogs: List[CatalogResponse],
+            total: Long
+        ): F[Unit] = cache.set(limit, offset, catalogs, total)
       }
     }
 
