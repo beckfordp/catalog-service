@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+
 set -euo pipefail
 
 # Verifies US-1.2's Phase 3 (cache-aside wiring) end-to-end: brings up

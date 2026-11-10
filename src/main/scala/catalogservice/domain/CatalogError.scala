@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 package catalogservice.domain
 
 /** Expected, nameable failures, mapped to HTTP statuses at the edge

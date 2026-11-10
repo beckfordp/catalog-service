@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+
 set -euo pipefail
 
 # Verifies US-1.2's Phase 2 (CatalogListCache) end-to-end against the real

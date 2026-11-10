@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 package catalogservice.domain
 
 /** A validated `GET /catalogs` page request: `1 <= limit <= maxLimit`,

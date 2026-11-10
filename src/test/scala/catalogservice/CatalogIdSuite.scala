@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 package catalogservice
 
 import catalogservice.domain.CatalogId

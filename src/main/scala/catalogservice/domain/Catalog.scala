@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 package catalogservice.domain
 
 /** A catalog entry as stored. */

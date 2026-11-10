@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 package catalogservice.domain
 
 /** The mutable fields of a catalog entry, parsed by `CatalogRules.details`. */
